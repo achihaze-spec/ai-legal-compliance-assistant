@@ -973,6 +973,27 @@
     feed(b, ev.text); say(b, ev.text.slice(0, 28));
   }
 
+  // ───────────────────────── Affiliate Studio form ─────────────────────────
+  const affModal = document.getElementById('affModal'), affForm = document.getElementById('affForm'), affMsg = document.getElementById('affMsg');
+  document.getElementById('affBtn').onclick = () => { affModal.classList.remove('hidden'); affMsg.textContent = live ? '' :
+    'Kailangang naka-run ang server (start-mac.command / start-windows.bat) para gumawa ng totoong videos.'; };
+  document.getElementById('affClose').onclick = () => affModal.classList.add('hidden');
+  affModal.addEventListener('click', (e) => { if (e.target === affModal) affModal.classList.add('hidden'); });
+  affForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!live) { affMsg.textContent = 'Offline: buksan muna ang server.'; return; }
+    const btn = affForm.querySelector('.primary'); btn.disabled = true; affMsg.textContent = 'Sending…';
+    try {
+      const r = await fetch('/api/affiliate', { method: 'POST', body: new FormData(affForm) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail || 'error');
+      Sound.play('upload');
+      feed(botById.mgr, 'Affiliate job started! Panoorin ang content team 🎬');
+      affForm.reset(); affModal.classList.add('hidden'); affMsg.textContent = '';
+    } catch (err) { affMsg.textContent = 'Hindi nagsimula: ' + err.message; }
+    btn.disabled = false;
+  };
+
   const muteBtn = document.getElementById('muteBtn');
   const paintMute = () => { muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; muteBtn.title = Sound.muted ? 'Sound off (click to turn on)' : 'Sound on (click to mute)'; };
   muteBtn.addEventListener('click', () => { Sound.toggle(); paintMute(); });

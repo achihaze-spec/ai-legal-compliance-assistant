@@ -4,5 +4,7 @@ python-multipart
 pypdf
 python-docx
 beautifulsoup4
+pillow
+requests
 imageio-ffmpeg  # bundled ffmpeg for Video Editor (no separate install needed)
 anthropic  # optional: lets Claude review documents and write captions

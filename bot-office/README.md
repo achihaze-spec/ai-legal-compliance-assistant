@@ -65,6 +65,30 @@ and app approval, so Poster stops at "ready to post".
 API: `GET /api/health`, `POST /api/upload` (multipart `files`), `GET /api/bots/events?after=N`,
 `GET /api/calendar`, `GET /reports/<job>.html`.
 
+## 🛒 Affiliate Studio (5 faceless affiliate videos from a product link)
+Click **🛒 Affiliate** in the top bar (live mode). Paste a Shopee / TikTok Shop link, tick **"Hawak ko ang product"** if you
+have it, optionally add 2-3 product photos and notes (features from the label/listing, one per line; `problem:` and
+`warning:` lines are understood). The content team then:
+
+1. **Caption Writer** writes 5 videos in 5 different styles (hands-only unboxing, POV problem→solution, aesthetic b-roll,
+   "Totoo ba?" label check, 3-reasons listicle): 3 hooks each, a timed Taglish script, caption, hashtags, pinned comment.
+   Claude writes them when a key is set; otherwise templates fill in from your notes.
+2. **Reg Checker** runs the platform policy check and fixes what it can: no price/sale talk, no platform names,
+   CTA "check the basket" (never "yellow basket"), `#ad`, no slimming/whitening/medical/before-after claims, no fake
+   urgency or invented ratings, no "ginamit ko" lines unless you have the product, pacing (~2.5 words/s), 5 distinct hooks.
+3. **Video Editor** renders 5 **draft** videos: storyboards where seller photos fill the seller shots and "SHOT N: KUNAN MO
+   ITO" cards mark the shots you need to film (or generate with Veo/Kling using the scene prompts on the page).
+4. **Scheduler** spreads the 5 posts over different slots.
+
+On the results page, upload your clips (and optionally your voiceover) under each video and press **Gawing final**: the
+clips replace the cards, the timeline stretches to your voiceover, and the DRAFT badge is gone.
+
+Why drafts first: TikTok Shop and Shopee penalise unoriginal content (seller-photo slideshows, reposts, near-duplicates).
+Every posted video needs original footage. If you use AI clips, turn on the AI-generated label when posting. Rules change,
+so double-check the platforms' affiliate content guidelines.
+
+If the shop blocks the link, the product name is taken from the URL itself and your photos/notes are used.
+
 ## Swapping in real pixel art
 All art is drawn in `office.js` with canvas shapes. The bots are cartoon kids (`LOOKS` sets each one's hair, skin, outfit and accessory), and the furniture is `drawFurniture` / `drawWalls`.
 If you buy an isometric pixel-art pack, replace those functions with `ctx.drawImage(...)` calls.

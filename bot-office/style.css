@@ -91,3 +91,17 @@ span.avatar::before, span.avatar::after { content: ""; position: absolute; top: 
   .feed { width: 100%; height: 34%; border-left: 0; border-top: 1px solid #2a2550; }
   .panel { left: 10px; right: 10px; width: auto; top: 10px; }
 }
+
+.affbtn { background: #ffd23d; color: #2a1d00; border: 0; border-radius: 8px; padding: 6px 10px; font-weight: 800; cursor: pointer; }
+.modal { position: absolute; inset: 0; background: rgba(8,6,20,.6); display: flex; align-items: center; justify-content: center; z-index: 5; }
+.modal.hidden { display: none; }
+.affform { width: min(460px, 92%); background: #17132e; border: 1px solid #3a3270; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; animation: pop .2s ease-out; }
+.affform .head { display: flex; align-items: center; } .affform h2 { margin: 0; font-size: 18px; }
+.affform .close { margin-left: auto; background: none; border: 0; color: #9c96c9; font-size: 22px; cursor: pointer; }
+.affform label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: #cfc9ff; }
+.affform label.check { flex-direction: row; align-items: center; gap: 8px; }
+.affform small, .affform .muted { color: #8d87b8; font-size: 12px; margin: 0; }
+.affform input[type=url], .affform textarea { background: #0d0b1a; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 9px; font: inherit; }
+.affform .primary { background: #ff6fae; color: #1a0d18; border: 0; border-radius: 10px; padding: 11px; font-weight: 800; font-size: 15px; cursor: pointer; }
+.affform .primary:disabled { opacity: .6; cursor: wait; }
+#affMsg { font-size: 13px; color: #ffd23d; min-height: 1em; }
