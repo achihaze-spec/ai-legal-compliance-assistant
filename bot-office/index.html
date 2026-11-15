@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>24/7 Bots — Bot Office</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🤖</span>
+      <b>24/7 Bots</b>
+      <span class="live hidden" id="liveBadge">● LIVE</span>
+      <span class="hint">click a bot to open its panel · drop files to give them work</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-filter="all" class="active">All</button>
+      <button data-filter="compliance">⚖️ Compliance</button>
+      <button data-filter="content">🎬 Content</button>
+    </nav>
+    <div class="stats">
+      <span title="Bots working"><i class="dot working"></i><b id="statWorking">0</b> working</span>
+      <span title="Tasks waiting"><b id="statQueue">0</b> queued</span>
+      <span title="Tasks finished"><b id="statDone">0</b> done</span>
+      <label class="demo"><input type="checkbox" id="demoToggle" checked /> demo</label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage" id="stage">
+      <canvas id="office"></canvas>
+      <div class="dropzone" id="dropzone">
+        <div>Drop the files to add them 📥<small>PDF/DOC → Compliance · Video/Image → Content<br>Drop on a bot to give it directly</small></div>
+      </div>
+      <div class="zoom">
+        <button id="zoomIn" title="Zoom in">＋</button>
+        <button id="zoomOut" title="Zoom out">－</button>
+        <button id="zoomFit" title="Fit">⤢</button>
+      </div>
+      <aside class="panel hidden" id="panel"></aside>
+    </section>
+
+    <aside class="feed">
+      <h3>Live updates</h3>
+      <ul id="feed"></ul>
+      <div class="manager" id="managerBar">
+        <span class="avatar" style="--c:#e8e8f0"></span>
+        <div><b>Bot Manager</b> <small>Manager</small><br><span id="managerStatus">All ok</span></div>
+      </div>
+    </aside>
+  </main>
+
+  <input type="file" id="filePicker" multiple hidden />
+  <script src="office.js"></script>
+</body>
+</html>
