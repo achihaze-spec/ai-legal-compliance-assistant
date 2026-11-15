@@ -148,7 +148,12 @@ def _evidence(text: str, patterns: list[str]) -> str | None:
         m = re.search(p, text, re.I)
         if m:
             s, e = max(0, m.start() - 70), min(len(text), m.end() + 90)
-            return re.sub(r"\s+", " ", text[s:e]).strip()
+            while s > 0 and not text[s - 1].isspace():  # don't start/end mid-word
+                s -= 1
+            while e < len(text) and not text[e].isspace():
+                e += 1
+            snippet = re.sub(r"\s+", " ", text[s:e]).strip()
+            return ("… " if s > 0 else "") + snippet + (" …" if e < len(text) else "")
     return None
 
 

@@ -11,7 +11,7 @@
   const iso = (x, y, z = 0) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 - z });
 
   const canvas = document.getElementById('office');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d'); // swapped temporarily when drawing portraits
   let dpr = 1, cam = { x: 0, y: 0, zoom: 1 };
 
   function poly(pts, fill, stroke) {
@@ -255,9 +255,9 @@
     // movement
     if (b.path.length) {
       const p = b.path[0], dx = p.x - b.x, dy = p.y - b.y, dist = Math.hypot(dx, dy), sp = 2.4 * dt;
-      if (Math.abs(dx) > Math.abs(dy)) b.dir = 0; else b.dir = 1;
+      if (Math.abs(dx - dy) > 0.001) b.face = dx - dy > 0 ? 1 : -1; // screen-x direction
       if (dist <= sp) { b.x = p.x; b.y = p.y; b.path.shift(); } else { b.x += dx / dist * sp; b.y += dy / dist * sp; }
-      b.z = Math.abs(Math.sin(t * 11 + b.phase)) * 7;
+      b.z = Math.abs(Math.sin(t * 14 + b.phase)) * 2.5;
       if (!b.path.length) b.z = 0;
       return;
     }
@@ -270,7 +270,7 @@
 
     if (b.task && b.state !== 'break') {
       if (!atDesk) { b.state = 'walking'; walkTo(b, seat.x, seat.y, 6); return; }
-      b.state = 'working'; b.dir = 1;
+      b.state = 'working'; b.face = 1;
       b.z = 6 + Math.abs(Math.sin(t * 7 + b.phase)) * 1.5;
       // real (server) tasks wait at 92% until the server says they're done
       const cap = b.task.external && !b.task.finished ? 0.92 : 1;
@@ -514,57 +514,126 @@
     }
   }
 
-  // ───────────────────────── Drawing: bots ─────────────────────────
+  // ───────────────────────── Drawing: the bots (cartoon kids) ─────────────────────────
+  // Each bot is a little chibi character drawn with canvas paths. Local coords: feet at (0,0),
+  // +x = the way the character is facing (flipped with scale(-1,1)).
+  const LOOKS = {
+    doc:   { skin: '#f6d3b3', hair: '#e8c55a', style: 'long',      acc: 'headband', accCol: '#b04fd6', shirt: 'plain' },
+    reg:   { skin: '#e9b98f', hair: '#3b2a20', style: 'spiky',     acc: 'glasses',  shirt: 'collar' },
+    risk:  { skin: '#a8714c', hair: '#2e1d16', style: 'curly',     acc: 'headband', accCol: '#ffb02e', shirt: 'plain' },
+    vid:   { skin: '#f3cfae', hair: '#5fd6d0', style: 'spacebuns', acc: 'clips',    accCol: '#ffe14d', shirt: 'stripes' },
+    cap:   { skin: '#f4d0ae', hair: '#ecc35c', style: 'curly',     acc: null,       shirt: 'stripes' },
+    sched: { skin: '#d9a57d', hair: '#4a2c1f', style: 'bun',       acc: 'ribbon',   accCol: '#e8336e', shirt: 'dots' },
+    post:  { skin: '#f1c7a4', hair: '#e2683a', style: 'braid',     acc: 'ribbon',   accCol: '#3d8bff', shirt: 'overalls' },
+    mgr:   { skin: '#8d5a3b', hair: '#1f1410', style: 'swoosh',    acc: 'tie',      accCol: '#e84a5f', shirt: 'collar' },
+  };
   let hoverBot = null, selected = null, filter = 'all';
+  const HEAD_Y = -35, HR = 13;
+
+  function rr(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function circ(x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); }
+
+  function hairBack(L) {
+    const h = L.hair, y = HEAD_Y;
+    if (L.style === 'long') { ctx.beginPath(); ctx.ellipse(-3, y + 6, 16, 20, 0, 0, Math.PI * 2); ctx.fillStyle = h; ctx.fill();
+      for (let i = 0; i < 5; i++) circ(-15 + i * 2, y + 2 + i * 5, 5, h); }
+    if (L.style === 'curly') for (const [cx, cy, r] of [[-12, -8, 7], [-14, 1, 7], [-10, 9, 6], [-4, -14, 7], [5, -14, 6], [11, -9, 5], [-15, -2, 6]]) circ(cx, y + cy, r, h);
+    if (L.style === 'braid') { for (let i = 0; i < 5; i++) circ(-11 + i * .3, y + 6 + i * 5.5, 3.6 - i * .25, h);
+      if (L.acc === 'ribbon') { ctx.fillStyle = L.accCol; ctx.fillRect(-14, y + 28, 6, 3); } }
+  }
+  function hairFront(L, t) {
+    const h = L.hair, y = HEAD_Y;
+    ctx.fillStyle = h;
+    // cap over the top/back of the head with a fringe toward the face
+    ctx.beginPath(); ctx.arc(0, y, HR + 1.5, Math.PI * 0.82, Math.PI * 2.02);
+    ctx.quadraticCurveTo(9, y - 9, 3, y - 6); ctx.quadraticCurveTo(-1, y - 10, -5, y - 4); ctx.quadraticCurveTo(-9, y - 2, -12, y + 4);
+    ctx.closePath(); ctx.fill();
+    if (L.style === 'spiky') { ctx.beginPath(); ctx.moveTo(-10, y - 9); ctx.lineTo(-6, y - 20); ctx.lineTo(-2, y - 12); ctx.lineTo(3, y - 21); ctx.lineTo(6, y - 12); ctx.lineTo(12, y - 17); ctx.lineTo(11, y - 7); ctx.closePath(); ctx.fill(); }
+    if (L.style === 'swoosh') { ctx.beginPath(); ctx.moveTo(-8, y - 11); ctx.quadraticCurveTo(6, y - 24, 17, y - 12); ctx.quadraticCurveTo(8, y - 12, 4, y - 7); ctx.closePath(); ctx.fill(); }
+    if (L.style === 'curly') for (const [cx, cy, r] of [[-6, -13, 5], [1, -15, 5], [7, -12, 4.5], [-11, -6, 4.5]]) circ(cx, y + cy, r, h);
+    if (L.style === 'bun') circ(-6, y - 16, 7, h);
+    if (L.style === 'spacebuns') { circ(-10, y - 12, 6.5, h); circ(5, y - 16, 6.5, h); }
+    // accessories
+    if (L.acc === 'headband') { ctx.beginPath(); ctx.arc(0, y, HR + 1.6, Math.PI * 1.15, Math.PI * 1.75); ctx.strokeStyle = L.accCol; ctx.lineWidth = 3; ctx.stroke(); }
+    if (L.acc === 'ribbon' && L.style === 'bun') { ctx.fillStyle = L.accCol; ctx.beginPath(); ctx.moveTo(-6, y - 10); ctx.lineTo(-12, y - 14); ctx.lineTo(-11, y - 6); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(-6, y - 10); ctx.lineTo(0, y - 13); ctx.lineTo(-1, y - 6); ctx.closePath(); ctx.fill(); }
+    if (L.acc === 'clips') { ctx.fillStyle = L.accCol; rr(-12, y - 15, 5, 3, 1.5); ctx.fill(); rr(3, y - 19, 5, 3, 1.5); ctx.fill(); }
+  }
+  function face(L, b, t) {
+    const y = HEAD_Y;
+    const blinking = ((t + b.blink) % 4) < 0.13;
+    for (const ex of [1.5, 9]) {
+      if (blinking) { ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(ex - 2.5, y + 1); ctx.lineTo(ex + 2.5, y + 1); ctx.stroke(); continue; }
+      ctx.beginPath(); ctx.ellipse(ex, y + 0.5, 2.7, 3.6, 0, 0, Math.PI * 2); ctx.fillStyle = '#2a1a14'; ctx.fill();
+      circ(ex + 1, y - 1, 1.15, '#fff'); circ(ex - 0.8, y + 1.8, 0.55, '#fff');
+    }
+    ctx.globalAlpha *= 0.55; circ(-1.5, y + 6, 2.6, '#ff7d9a'); circ(11.5, y + 6, 2.2, '#ff7d9a'); ctx.globalAlpha = ctx.globalAlpha / 0.55;
+    circ(12.6, y + 3.5, 1.1, shade(L.skin, -0.18)); // nose
+    const talking = b.bubble && b.bubble.until > t && Math.floor(t * 8) % 2;
+    ctx.strokeStyle = '#7a2e2e'; ctx.fillStyle = '#7a2e2e'; ctx.lineWidth = 1.4;
+    if (talking) { ctx.beginPath(); ctx.ellipse(6.5, y + 8, 2.2, 2, 0, 0, Math.PI * 2); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(6.5, y + 6.2, 2.8, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke(); }
+    if (L.acc === 'glasses') { ctx.strokeStyle = '#22223a'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(1.5, y + 0.5, 4.3, 0, 7); ctx.moveTo(13.3, y + 0.5); ctx.arc(9, y + 0.5, 4.3, 0, 7); ctx.moveTo(5.8, y); ctx.lineTo(4.7, y); ctx.stroke(); }
+  }
+  function body(L, b, t) {
+    const walking = b.path.length > 0, sw = walking ? Math.sin(t * 14 + b.phase) : 0;
+    const seated = b.state === 'working';
+    // legs + shoes
+    ctx.fillStyle = L.shirt === 'overalls' ? '#2f6fd6' : '#3b3d63';
+    if (seated) { rr(-5, -9, 13, 5, 2.5); ctx.fill(); circ(9, -6.5, 2.8, '#2a2333'); }
+    else for (const [lx, ph] of [[-4.5, sw], [1.5, -sw]]) { rr(lx, -9 + Math.max(0, ph) * -2, 4, 8, 2); ctx.fill(); circ(lx + 2.5 + ph * 1.5, -1 + Math.max(0, ph) * -2, 2.8, '#2a2333'); ctx.fillStyle = L.shirt === 'overalls' ? '#2f6fd6' : '#3b3d63'; }
+    // back arm
+    ctx.fillStyle = shade(b.color, -0.18); rr(-11 - sw * 2, -21, 5, 11, 2.5); ctx.fill();
+    // torso
+    ctx.fillStyle = b.color; rr(-9, -23, 18, 15, 6); ctx.fill();
+    if (L.shirt === 'stripes') { ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 3; i++) ctx.fillRect(-8.5, -19 + i * 4, 17, 1.8); }
+    if (L.shirt === 'dots') for (const [dx, dy] of [[-5, -18], [1, -16], [5, -20], [-3, -12], [4, -12]]) circ(dx, dy, 1.1, 'rgba(255,255,255,.75)');
+    if (L.shirt === 'overalls') { ctx.fillStyle = '#2f6fd6'; rr(-6, -18, 12, 10, 3); ctx.fill(); ctx.fillRect(-6, -23, 2.4, 6); ctx.fillRect(3.6, -23, 2.4, 6); circ(-4.8, -18, 1, '#ffd23d'); circ(4.8, -18, 1, '#ffd23d'); }
+    if (L.shirt === 'collar') { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-4, -23); ctx.lineTo(2, -19); ctx.lineTo(8, -23); ctx.closePath(); ctx.fill(); }
+    if (L.acc === 'tie') { ctx.fillStyle = L.accCol; ctx.beginPath(); ctx.moveTo(1, -21); ctx.lineTo(4, -21); ctx.lineTo(4.5, -12); ctx.lineTo(2.5, -10); ctx.lineTo(0.5, -12); ctx.closePath(); ctx.fill(); }
+    // front arm (typing when working)
+    const typing = seated ? Math.sin(t * 22 + b.phase) * 1.5 : 0;
+    ctx.fillStyle = shade(b.color, -0.05);
+    if (seated) { rr(4, -18 + typing, 11, 5, 2.5); ctx.fill(); circ(15, -15.5 + typing, 2.5, L.skin); }
+    else { rr(5 + sw * 2, -21, 5, 11, 2.5); ctx.fill(); circ(7.5 + sw * 2, -9.5, 2.5, L.skin); }
+  }
+
   function drawBot(b, t) {
-    const S = 0.36; // half size in cells
+    const L = LOOKS[b.id];
     const g = iso(b.x, b.y, 0);
     const dim = filter !== 'all' && b.team !== filter && b.team !== 'manager';
     ctx.globalAlpha = dim ? 0.3 : 1;
-    // shadow
-    const sh = Math.max(0.55, 1 - b.z / 40);
-    ctx.beginPath(); ctx.ellipse(g.x, g.y, 15 * sh, 7.5 * sh, 0, 0, 7); ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fill();
-    const hz = 26, z0 = b.z;
-    const x0 = b.x - S, y0 = b.y - S, s2 = S * 2;
+    // shadow (+ glow ring when hovered/selected)
+    const sh = Math.max(0.6, 1 - b.z / 40);
+    ctx.beginPath(); ctx.ellipse(g.x, g.y, 13 * sh, 6 * sh, 0, 0, 7); ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fill();
     if (b === selected || b === hoverBot) {
-      ctx.save(); ctx.shadowColor = b.color; ctx.shadowBlur = 18; box(x0, y0, s2, s2, hz, z0, b.color); ctx.restore();
+      ctx.beginPath(); ctx.ellipse(g.x, g.y, 17, 8, 0, 0, 7); ctx.strokeStyle = b.color; ctx.lineWidth = 2.5;
+      ctx.shadowColor = b.color; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
     }
-    box(x0, y0, s2, s2, hz, z0, b.color);
-    // shiny top highlight
-    poly([iso(x0 + .08, y0 + .08, z0 + hz), iso(x0 + .35, y0 + .08, z0 + hz), iso(x0 + .35, y0 + .2, z0 + hz), iso(x0 + .08, y0 + .2, z0 + hz)], 'rgba(255,255,255,.35)');
-    // face on the side it's moving toward (dir 0 = +x face, 1 = +y face)
-    const blinking = ((t + b.blink) % 4) < 0.12;
-    const eyeH = blinking ? 1.5 : 8;
-    const eyeCol = '#1b1530';
-    const happy = b.state === 'working';
-    if (b.dir === 1) {
-      const fy = y0 + s2 + 0.002;
-      for (const ex of [x0 + .18, x0 + .5]) quadY(fy, ex, ex + .1, z0 + 12, z0 + 12 + eyeH, eyeCol);
-      if (!blinking) for (const ex of [x0 + .18, x0 + .5]) quadY(fy + .001, ex + .02, ex + .06, z0 + 17, z0 + 19, '#fff');
-      if (happy) quadY(fy, x0 + .3, x0 + .44, z0 + 7, z0 + 9, eyeCol);
-      quadY(fy, x0 + .04, x0 + .14, z0 + 9, z0 + 11, 'rgba(255,90,140,.55)'); quadY(fy, x0 + .6, x0 + .7, z0 + 9, z0 + 11, 'rgba(255,90,140,.55)');
-    } else {
-      const fx = x0 + s2 + 0.002;
-      for (const ey of [y0 + .18, y0 + .5]) quadX(fx, ey, ey + .1, z0 + 12, z0 + 12 + eyeH, eyeCol);
-      if (!blinking) for (const ey of [y0 + .18, y0 + .5]) quadX(fx + .001, ey + .02, ey + .06, z0 + 17, z0 + 19, '#fff');
-      if (happy) quadX(fx, y0 + .3, y0 + .44, z0 + 7, z0 + 9, eyeCol);
-      quadX(fx, y0 + .04, y0 + .14, z0 + 9, z0 + 11, 'rgba(255,90,140,.55)'); quadX(fx, y0 + .6, y0 + .7, z0 + 9, z0 + 11, 'rgba(255,90,140,.55)');
-    }
-    // manager gets a little antenna
-    if (b.id === 'mgr') {
-      const a = iso(b.x, b.y, z0 + hz), tip = iso(b.x, b.y, z0 + hz + 10);
-      ctx.strokeStyle = '#9a9ab0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
-      ctx.beginPath(); ctx.arc(tip.x, tip.y, 3, 0, 7); ctx.fillStyle = Math.floor(t * 2) % 2 ? '#3ddc84' : '#ff6fae'; ctx.fill();
-    }
+    const breathe = b.path.length ? 0 : Math.sin(t * 2.4 + b.phase) * 0.6;
+    ctx.save();
+    ctx.translate(g.x, g.y - b.z);
+    ctx.scale(b.face || 1, 1);
+    ctx.scale(1.12, 1.12);
+    body(L, b, t);
+    ctx.translate(0, breathe);
+    hairBack(L);
+    circ(-11, HEAD_Y + 2, 3.4, shade(L.skin, -0.06)); // ear
+    circ(0, HEAD_Y, HR, L.skin);
+    face(L, b, t);
+    hairFront(L, t);
+    ctx.restore();
     // working sparkle
     if (b.state === 'working' && Math.floor(t * 3 + b.phase) % 3 === 0) {
-      const p = iso(b.x + .3, b.y - .3, z0 + hz + 8); ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText('✦', p.x, p.y);
+      const p = iso(b.x + .3, b.y - .3, b.z + 52); ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText('✦', p.x, p.y);
     }
     ctx.globalAlpha = 1;
   }
 
   function drawOverlay(b, t) {
-    const top = iso(b.x, b.y, b.z + 30);
+    const top = iso(b.x, b.y, b.z + 64);
     if (b.bubble && b.bubble.until > t) drawBubble(top.x, top.y - 10, b.bubble.text);
     else b.bubble = null;
     if (b === hoverBot || b === selected) {
@@ -574,7 +643,7 @@
       ctx.fillStyle = b.color; ctx.textAlign = 'center'; ctx.fillText(b.name, p.x, p.y + 22); ctx.textAlign = 'left';
     }
     if (b.task && b.state === 'working') {
-      const p = iso(b.x, b.y, b.z + 30);
+      const p = iso(b.x, b.y, b.z + 60);
       roundRect(p.x - 16, p.y - 4, 32, 5, 2.5, 'rgba(15,12,30,.8)');
       roundRect(p.x - 15, p.y - 3, 30 * Math.min(1, b.task.progress), 3, 1.5, '#3ddc84');
     }
@@ -635,11 +704,32 @@
   }
 
   // ───────────────────────── UI: feed, stats, panel ─────────────────────────
+  // Head-and-shoulders portrait of each character for the feed and panel.
+  const portraits = {};
+  function makePortraits() {
+    const main = ctx;
+    for (const b of bots) {
+      const c = document.createElement('canvas'); c.width = c.height = 96;
+      ctx = c.getContext('2d');
+      ctx.fillStyle = shade(b.color, 0.55); ctx.beginPath(); ctx.arc(48, 48, 48, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(48, 48, 48, 0, Math.PI * 2); ctx.clip();
+      ctx.translate(46, 100); ctx.scale(1.75, 1.75);
+      const fake = { ...b, path: [], state: 'idle', bubble: null, blink: 1 };
+      body(LOOKS[b.id], fake, 0); hairBack(LOOKS[b.id]);
+      circ(-11, HEAD_Y + 2, 3.4, shade(LOOKS[b.id].skin, -0.06)); circ(0, HEAD_Y, HR, LOOKS[b.id].skin);
+      face(LOOKS[b.id], fake, 0); hairFront(LOOKS[b.id], 0);
+      ctx.restore();
+      portraits[b.id] = c.toDataURL();
+    }
+    ctx = main;
+  }
+  const avatar = (b, cls = 'avatar') => `<img class="${cls}" src="${portraits[b.id]}" alt="">`;
+
   const feedEl = document.getElementById('feed');
   function feed(b, text, url) {
     const li = document.createElement('li');
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    li.innerHTML = `<span class="avatar" style="--c:${b.color}"></span><div><b></b><time>${time}</time><br><span class="txt"></span></div>`;
+    li.innerHTML = `${avatar(b)}<div><b></b><time>${time}</time><br><span class="txt"></span></div>`;
     li.querySelector('b').textContent = b.name; li.querySelector('.txt').textContent = text;
     if (url) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.textContent = ' 📄 Open report'; li.querySelector('.txt').after(a); }
     feedEl.prepend(li);
@@ -664,7 +754,7 @@
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const label = { working: '● Working', idle: b.path.length ? '● On the move' : '● Chilling', break: '● On break' }[status];
     panel.innerHTML = `
-      <div class="head"><span class="avatar" style="--c:${b.color}"></span>
+      <div class="head">${avatar(b)}
         <div><h2>${esc(b.name)}</h2><div class="role">${esc(b.role)}</div></div>
         <button class="close" data-act="close">×</button></div>
       <span class="pill ${status}">${label}</span>
@@ -705,8 +795,8 @@
   // ───────────────────────── Input: pan, zoom, click ─────────────────────────
   function botAt(sx, sy) {
     const w = toWorld(sx, sy);
-    let best = null, bd = 22;
-    for (const b of bots) { const p = iso(b.x, b.y, b.z + 14), dd = Math.hypot(p.x - w.x, p.y - w.y); if (dd < bd) { bd = dd; best = b; } }
+    let best = null, bd = 26;
+    for (const b of bots) { const p = iso(b.x, b.y, b.z + 24), dd = Math.hypot(p.x - w.x, p.y - w.y); if (dd < bd) { bd = dd; best = b; } }
     return best;
   }
   let drag = null;
@@ -832,7 +922,8 @@
 
   window.BotOffice = { bots: botById, assign, startPipeline, applyEvent, setDemo: (v) => { demo = v; document.getElementById('demoToggle').checked = v; } };
 
-  resize(); fit();
+  resize(); fit(); makePortraits();
+  document.querySelector('#managerBar .avatar').outerHTML = avatar(botById.mgr);
   feed(botById.mgr, 'Good morning team! Office is open 🌅');
   connectLive().then(() => { if (!live) startPipeline('compliance', 'Data_Privacy_Act_RA10173.pdf'); });
   setTimeout(() => startPipeline('content', 'vlog_day3.mp4'), 2600);

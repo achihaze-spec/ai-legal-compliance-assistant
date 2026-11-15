@@ -35,6 +35,6 @@ Right now the work is simulated. To drive it from a real backend:
   `BotOffice.startPipeline('content', 'vlog.mp4')`, `BotOffice.applyEvent({...})`.
 
 ## Swapping in real pixel art
-All art is drawn in `office.js` (`drawFurniture`, `drawBot`, `drawWalls`) with canvas shapes.
+All art is drawn in `office.js` with canvas shapes. The bots are cartoon kids (`LOOKS` sets each one's hair, skin, outfit and accessory), and the furniture is `drawFurniture` / `drawWalls`.
 If you buy an isometric pixel-art pack, replace those functions with `ctx.drawImage(...)` calls.
 The positions, pathfinding and animations stay the same.
