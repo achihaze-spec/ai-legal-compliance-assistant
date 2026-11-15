@@ -12,15 +12,19 @@ from __future__ import annotations
 
 import os
 import queue
+import shutil
 import re
 import threading
 import time
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import json
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 
+import affiliate
 import ai
 import compliance
 import content
@@ -29,10 +33,12 @@ HERE = Path(__file__).resolve().parent
 UPLOADS = HERE / "data" / "uploads"
 REPORTS = HERE / "data" / "reports"
 OUTBOX = HERE / "data" / "outbox"
+AFFILIATE = HERE / "data" / "affiliate"
 CALENDAR = HERE / "data" / "calendar.json"
 UPLOADS.mkdir(parents=True, exist_ok=True)
 REPORTS.mkdir(parents=True, exist_ok=True)
 OUTBOX.mkdir(parents=True, exist_ok=True)
+AFFILIATE.mkdir(parents=True, exist_ok=True)
 
 DOC_EXT = {".pdf", ".docx", ".html", ".htm", ".txt", ".md"}
 MEDIA_EXT = content.VIDEO_EXT | content.IMAGE_EXT
@@ -68,6 +74,7 @@ def events(after: int = 0):
 # ───────────────────────── uploads -> job queue ─────────────────────────
 _jobs: "queue.Queue[dict]" = queue.Queue()
 _content_jobs: "queue.Queue[dict]" = queue.Queue()
+_affiliate_jobs: "queue.Queue[dict]" = queue.Queue()
 
 
 @app.post("/api/upload")
@@ -93,6 +100,150 @@ async def upload(files: list[UploadFile] = File(...)):
             emit(bot="vid", type="task", task=f"{job_id}-vid", text=f"Edit to 9:16: {name}", secs=MIN_STEP_SECS["vid"])
         accepted.append({"job": job_id, "name": name, "team": "compliance" if is_doc else "content"})
     return {"accepted": accepted, "skipped": skipped}
+
+
+# ───────────────────────── Affiliate Studio ─────────────────────────
+async def _save_uploads(files, folder: Path, allowed: set, prefix: str) -> list[Path]:
+    saved = []
+    for i, f in enumerate(files or []):
+        if not f or not f.filename:
+            continue
+        ext = Path(f.filename).suffix.lower()
+        data = await f.read()
+        if ext in allowed and 0 < len(data) <= MAX_MEDIA_BYTES:
+            p = folder / f"{prefix}{i}{ext}"
+            p.write_bytes(data)
+            saved.append(p)
+    return saved
+
+
+@app.post("/api/affiliate")
+async def affiliate_start(url: str = Form(""), owns: str = Form("0"), notes: str = Form(""),
+                          photos: list[UploadFile] = File(default=[])):
+    url = url.strip()
+    if not url and not any(p.filename for p in photos):
+        raise HTTPException(400, "Maglagay ng product link o photos.")
+    if url and not re.match(r"https?://", url):
+        raise HTTPException(400, "Dapat nagsisimula sa http:// o https:// ang link.")
+    jid = uuid.uuid4().hex[:10]
+    folder = AFFILIATE / jid
+    folder.mkdir(parents=True)
+    imgs = await _save_uploads(photos, folder, content.IMAGE_EXT, "photo")
+    _affiliate_jobs.put({"kind": "plan", "id": jid, "url": url, "owns": owns in ("1", "true", "on"), "notes": notes, "photos": imgs})
+    emit(bot="cap", type="task", task=f"{jid}-cap", text=f"Write 5 affiliate scripts: {url or 'uploaded photos'}", secs=MIN_STEP_SECS["cap"])
+    return {"ok": True, "job": jid, "page": f"/reports/{jid}.html"}
+
+
+@app.post("/api/affiliate/{jid}/{n}/final")
+async def affiliate_final(jid: str, n: int, clips: list[UploadFile] = File(default=[]), vo: UploadFile | None = File(default=None)):
+    folder = AFFILIATE / jid
+    if not re.fullmatch(r"[0-9a-f]{10}", jid) or not (folder / "job.json").exists() or not 1 <= n <= 5:
+        raise HTTPException(404)
+    sub = folder / f"final{n}"
+    shutil.rmtree(sub, ignore_errors=True)
+    sub.mkdir()
+    saved = await _save_uploads(clips, sub, MEDIA_EXT, "clip")
+    if not saved:
+        return {"ok": False, "error": "Walang valid na clip (video o image)."}
+    vo_files = await _save_uploads([vo] if vo else [], sub, {".mp3", ".m4a", ".wav", ".aac", ".mp4", ".mov"}, "vo")
+    _affiliate_jobs.put({"kind": "final", "id": jid, "n": n, "clips": saved, "vo": vo_files[0] if vo_files else None})
+    emit(bot="vid", type="task", task=f"{jid}-final{n}", text=f"Final edit: affiliate video {n}", secs=MIN_STEP_SECS["vid"])
+    return {"ok": True}
+
+
+def _save_job(job: dict) -> None:
+    (AFFILIATE / job["id"] / "job.json").write_text(json.dumps(job, ensure_ascii=False, indent=1), encoding="utf-8")
+    (REPORTS / f"{job['id']}.html").write_text(affiliate.render_page(job), encoding="utf-8")
+
+
+def run_affiliate_plan(req: dict) -> None:
+    jid = req["id"]
+    folder, out = AFFILIATE / jid, OUTBOX / jid
+    out.mkdir(parents=True, exist_ok=True)
+
+    # Caption Writer: read the product, write 5 scripts
+    t0 = time.time()
+    prod = affiliate.fetch_product(req["url"]) if req["url"] else {"url": "", "name": "", "description": "", "images": [], "ok": False, "note": ""}
+    seller = affiliate.download_images(prod["images"], folder) if prod["images"] else []
+    seller = req["photos"] + seller
+    notes = affiliate.parse_notes(req["notes"])
+    prod["name"] = notes["name"] or prod["name"]
+    prod.update(features=notes["features"], problem=notes["problem"], warning=notes["warning"],
+                category=affiliate.categorize(prod["name"], f"{prod['description']} {req['notes']}"))
+    videos, lock, author = affiliate.plan_videos(prod, req["owns"])
+    _paced("cap", t0)
+    emit(bot="cap", type="done", task=f"{jid}-cap", text=f"5 scripts para sa {prod['name'] or 'product'} (by {author})")
+
+    # Reg Checker: platform policy
+    emit(bot="reg", type="task", task=f"{jid}-policy", text="Platform policy check: 5 affiliate videos", secs=MIN_STEP_SECS["reg"])
+    t0 = time.time()
+    job_notes = []
+    if prod["note"]:
+        job_notes.append(prod["note"])
+    if not seller:
+        job_notes.append("Walang product photo: mag-upload ng 2-3 malinaw na photos para sa seller shots at sa AI reference.")
+    if not notes["features"] and author == "template":
+        job_notes.append("Walang features sa notes: may [placeholder] sa scripts. Ilagay ang features (galing sa label/listing) at gumawa ulit.")
+    fixes = 0
+    for v in videos:
+        v["policy"] = affiliate.policy_check(v, req["owns"])
+        fixes += sum(f["level"] == "fixed" for f in v["policy"])
+        v["prompts"] = affiliate.scene_prompts(v, lock)
+    job_notes += affiliate.distinct_check(videos)
+    _paced("reg", t0)
+    emit(bot="reg", type="done", task=f"{jid}-policy", text=f"Policy check: {fixes} auto-fix, drafts need original footage before posting")
+
+    # Video Editor: 5 storyboard drafts
+    emit(bot="vid", type="task", task=f"{jid}-vid", text="Render 5 draft videos", secs=MIN_STEP_SECS["vid"])
+    t0 = time.time()
+    for n, v in enumerate(videos, 1):
+        try:
+            v["render"] = affiliate.render_video(v, n, seller, [], None, folder / f"work{n}", out / f"video{n}.mp4")
+        except Exception as exc:
+            v["render"] = {"draft": True, "error": str(exc)}
+            job_notes.append(f"Video {n}: hindi na-render ({exc})")
+    _paced("vid", t0)
+    emit(bot="vid", type="done", task=f"{jid}-vid", text="5 draft videos (storyboard) ready")
+
+    # Scheduler: spread the 5 posts over different slots
+    emit(bot="sched", type="task", task=f"{jid}-sched", text="Schedule 5 affiliate posts", secs=MIN_STEP_SECS["sched"])
+    t0 = time.time()
+    for n, v in enumerate(videos, 1):
+        v["slot"] = content.fmt_slot(content.next_slot(CALENDAR, f"{jid}-{n}", f"{prod['name'] or 'affiliate'} #{n}"))
+    _paced("sched", t0)
+    emit(bot="sched", type="done", task=f"{jid}-sched", text=f"5 posts: {videos[0]['slot']} → {videos[-1]['slot']}")
+
+    job = {"id": jid, "product": {k: prod[k] for k in ("url", "name", "description", "category")}, "owns": req["owns"],
+           "author": author, "lock": lock, "seller": [str(p) for p in seller], "videos": videos, "notes": job_notes}
+    _save_job(job)
+    emit(bot="post", type="task", task=f"{jid}-post", text="Package affiliate videos", secs=MIN_STEP_SECS["post"])
+    emit(bot="post", type="done", task=f"{jid}-post", url=f"/reports/{jid}.html",
+         text=f"{prod['name'] or 'Product'}: 5 affiliate videos ready for review 🛒")
+
+
+def run_affiliate_final(req: dict) -> None:
+    jid, n = req["id"], req["n"]
+    job = json.loads((AFFILIATE / jid / "job.json").read_text(encoding="utf-8"))
+    v = job["videos"][n - 1]
+    t0 = time.time()
+    render = affiliate.render_video(v, n, [Path(p) for p in job["seller"]], req["clips"], req["vo"],
+                                    AFFILIATE / jid / f"work{n}", OUTBOX / jid / f"video{n}.mp4")
+    render["rev"] = v.get("render", {}).get("rev", 0) + 1
+    v["render"] = render
+    v["policy"] = [f for f in v["policy"] if "Original footage" not in f["msg"]]
+    _save_job(job)
+    _paced("vid", t0)
+    emit(bot="vid", type="done", task=f"{jid}-final{n}", url=f"/reports/{jid}.html",
+         text=f"Affiliate video {n}: final na ({render['seconds']}s) 🎬")
+
+
+def affiliate_worker() -> None:
+    while True:
+        req = _affiliate_jobs.get()
+        try:
+            (run_affiliate_plan if req["kind"] == "plan" else run_affiliate_final)(req)
+        except Exception as exc:
+            emit(bot="mgr", type="log", text=f"Affiliate error: {exc}")
 
 
 @app.get("/outbox/{job_id}/{fname}")
@@ -243,6 +394,7 @@ def worker() -> None:
 
 threading.Thread(target=worker, daemon=True).start()
 threading.Thread(target=content_worker, daemon=True).start()
+threading.Thread(target=affiliate_worker, daemon=True).start()
 
 
 # ───────────────────────── the office page ─────────────────────────

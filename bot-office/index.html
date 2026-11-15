@@ -23,6 +23,7 @@
       <span title="Bots working"><i class="dot working"></i><b id="statWorking">0</b> working</span>
       <span title="Tasks waiting"><b id="statQueue">0</b> queued</span>
       <span title="Tasks finished"><b id="statDone">0</b> done</span>
+      <button class="affbtn" id="affBtn" title="Gumawa ng 5 affiliate videos mula sa product link">🛒 Affiliate</button>
       <button class="mute" id="muteBtn" title="Sound">🔊</button>
       <label class="demo"><input type="checkbox" id="demoToggle" checked /> demo</label>
     </div>
@@ -40,6 +41,21 @@
         <button id="zoomFit" title="Fit">⤢</button>
       </div>
       <aside class="panel hidden" id="panel"></aside>
+      <div class="modal hidden" id="affModal">
+        <form class="affform" id="affForm">
+          <div class="head"><h2>🛒 5 affiliate videos</h2><button type="button" class="close" id="affClose">×</button></div>
+          <label>Product link (Shopee / TikTok Shop)
+            <input name="url" type="url" placeholder="https://..." /></label>
+          <label class="check"><input type="checkbox" name="owns" value="1" /> Hawak ko / nagamit ko na ang product</label>
+          <label>Product photos <small>(2-3 malinaw na photo, lalo na kung hindi mabasa ang link)</small>
+            <input name="photos" type="file" accept="image/*" multiple /></label>
+          <label>Notes <small>(features mula sa label/listing, isa kada linya; puwede rin ang "problem:" at "warning:")</small>
+            <textarea name="notes" rows="4" placeholder="Leak-proof lid&#10;Keeps drinks cold 12 hours&#10;problem: pawis na tumbler sa bag"></textarea></label>
+          <p class="muted">Walang presyo at walang pangalan ng platform ang lalabas sa videos. "Check the basket" ang CTA, at may #ad.</p>
+          <button class="primary" type="submit">✨ Gumawa ng 5 videos</button>
+          <span class="msg" id="affMsg"></span>
+        </form>
+      </div>
     </section>
 
     <aside class="feed">
