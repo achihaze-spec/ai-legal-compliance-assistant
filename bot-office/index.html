@@ -24,6 +24,7 @@
       <span title="Tasks waiting"><b id="statQueue">0</b> queued</span>
       <span title="Tasks finished"><b id="statDone">0</b> done</span>
       <button class="affbtn" id="affBtn" title="Gumawa ng 5 affiliate videos mula sa product link">🛒 Affiliate</button>
+      <button class="mute" id="setBtn" title="Settings">⚙️</button>
       <button class="mute" id="muteBtn" title="Sound">🔊</button>
       <label class="demo"><input type="checkbox" id="demoToggle" checked /> demo</label>
     </div>
@@ -41,6 +42,23 @@
         <button id="zoomFit" title="Fit">⤢</button>
       </div>
       <aside class="panel hidden" id="panel"></aside>
+      <div class="modal hidden" id="setModal">
+        <form class="affform" id="setForm">
+          <div class="head"><h2>⚙️ Google (Veo) automation</h2><button type="button" class="close" id="setClose">×</button></div>
+          <label>Backend <select name="backend"><option value="gemini">Gemini API key (aistudio.google.com)</option>
+            <option value="vertex">Vertex AI / Google Cloud</option></select></label>
+          <label>API key <small>(naka-save lang sa computer mo)</small><input name="api_key" type="text" placeholder="AIza..." autocomplete="off" /></label>
+          <label>Vertex project ID <small>(kung Vertex na walang API key)</small><input name="project" type="text" /></label>
+          <button type="button" class="primary" id="setTest">🔌 Test connection (ilista ang models)</button>
+          <label>Image model<input name="image_model" type="text" list="imgModels" /><datalist id="imgModels"></datalist></label>
+          <label>Video model<input name="video_model" type="text" list="vidModels" /><datalist id="vidModels"></datalist></label>
+          <label>Haba ng bawat clip (segundo)<input name="clip_seconds" type="number" min="4" max="8" /></label>
+          <label>Presyo kada segundo (USD, para sa estimate) <small>tingnan ang pricing ng Google</small><input name="price_per_second" type="number" step="0.01" /></label>
+          <label>Budget kada produkto (USD, max)<input name="budget_per_job" type="number" step="1" /></label>
+          <button class="primary" type="submit">💾 Save</button>
+          <span class="msg" id="setMsg"></span>
+        </form>
+      </div>
       <div class="modal hidden" id="affModal">
         <form class="affform" id="affForm">
           <div class="head"><h2>🛒 5 affiliate videos</h2><button type="button" class="close" id="affClose">×</button></div>

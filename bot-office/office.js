@@ -994,6 +994,32 @@
     btn.disabled = false;
   };
 
+  // ───────────────────────── Settings (Google Veo) ─────────────────────────
+  const setModal = document.getElementById('setModal'), setForm = document.getElementById('setForm'), setMsg = document.getElementById('setMsg');
+  document.getElementById('setBtn').onclick = async () => {
+    setModal.classList.remove('hidden');
+    if (!live) { setMsg.textContent = 'Buksan muna ang server para ma-save ang settings.'; return; }
+    const st = await (await fetch('/api/settings')).json();
+    for (const [k, val] of Object.entries(st)) if (setForm.elements[k]) setForm.elements[k].value = val;
+    setMsg.textContent = st.configured ? '✅ May naka-set na key.' : 'Wala pang key.';
+  };
+  document.getElementById('setClose').onclick = () => setModal.classList.add('hidden');
+  const formJSON = () => Object.fromEntries(new FormData(setForm).entries());
+  setForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const r = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formJSON()) });
+    setMsg.textContent = r.ok ? '💾 Saved!' : 'Hindi na-save.';
+  };
+  document.getElementById('setTest').onclick = async () => {
+    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formJSON()) });
+    setMsg.textContent = 'Testing…';
+    const j = await (await fetch('/api/settings/test', { method: 'POST' })).json();
+    if (!j.ok) { setMsg.textContent = '❌ ' + j.error; return; }
+    const fill = (id, arr) => { document.getElementById(id).innerHTML = arr.map((m) => `<option value="${m}">`).join(''); };
+    fill('imgModels', j.image_models); fill('vidModels', j.video_models);
+    setMsg.textContent = `✅ Connected! Video models: ${j.video_models.join(', ') || 'WALA (baka Vertex lang ang may Veo)'} · Image: ${j.image_models.slice(0, 4).join(', ') || 'wala'}`;
+  };
+
   const muteBtn = document.getElementById('muteBtn');
   const paintMute = () => { muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; muteBtn.title = Sound.muted ? 'Sound off (click to turn on)' : 'Sound on (click to mute)'; };
   muteBtn.addEventListener('click', () => { Sound.toggle(); paintMute(); });

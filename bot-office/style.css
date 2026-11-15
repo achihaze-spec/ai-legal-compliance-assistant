@@ -110,3 +110,5 @@ span.avatar::before, span.avatar::after { content: ""; position: absolute; top: 
 .affform .modelbox label { margin-top: 8px; }
 .affform input[type=text] { background: #17132e; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
 .affform { max-height: 92%; overflow-y: auto; }
+.affform select { background: #0d0b1a; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
+.affform input[type=number] { background: #0d0b1a; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
