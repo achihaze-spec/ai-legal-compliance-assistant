@@ -834,8 +834,10 @@
   const DOC = /\.(pdf|docx?|html?|txt|md|rtf)$/i, MEDIA = /\.(mp4|mov|m4v|webm|avi|mkv|png|jpe?g|gif|heic)$/i;
   function routeFile(file, target) {
     const name = file.name;
-    const toCompliance = !target || target.team === 'compliance' || target.id === 'mgr';
-    if (live && DOC.test(name) && toCompliance) return uploadReal(file);
+    // live mode: the server runs both teams for real; drop anywhere (or on the right team)
+    const anyTarget = !target || target.id === 'mgr';
+    if (live && DOC.test(name) && (anyTarget || target.team === 'compliance')) return uploadReal(file);
+    if (live && MEDIA.test(name) && (anyTarget || target.team === 'content')) return uploadReal(file);
     if (target && target.id !== 'mgr') {
       const step = [...PIPELINES.compliance, ...PIPELINES.content].find((s) => s.bot === target.id);
       return assign(target.id, `${step ? step.verb : 'Handle'}: ${name}`, { secs: 8, file: name });
@@ -872,7 +874,7 @@
     demoTimer = 9 + Math.random() * 12;
     const busy = bots.reduce((n, b) => n + b.queue.length + (b.task ? 1 : 0), 0);
     if (busy > 6) return;
-    const team = live || Math.random() < 0.5 ? 'content' : 'compliance'; // live: compliance is real work
+    const team = Math.random() < 0.5 ? 'content' : 'compliance';
     startPipeline(team, rand(SAMPLE[team]));
   }
 
@@ -883,10 +885,14 @@
   async function connectLive() {
     try {
       const h = await fetch('/api/health'); if (!h.ok) return;
+      const info = await h.json();
       cursor = (await (await fetch('/api/bots/events?after=0')).json()).last; // skip old history
       live = true;
       document.getElementById('liveBadge').classList.remove('hidden');
-      feed(botById.mgr, 'LIVE na tayo! Drop a PDF/DOCX para sa compliance bots ⚖️');
+      demo = false; document.getElementById('demoToggle').checked = false;
+      feed(botById.mgr, `LIVE na tayo! PDF/DOCX → compliance ⚖️, video/image → content 🎬` +
+        (info.claude ? ' · Claude is on ✨' : ' · (no Claude key: rule-based mode)') +
+        (info.ffmpeg ? '' : ' · ffmpeg missing: videos kept as-is'));
       setInterval(pollLive, 1200);
     } catch (err) { /* opened as a plain file: stay in demo mode */ }
   }
@@ -901,7 +907,7 @@
   }
   async function uploadReal(file) {
     const fd = new FormData(); fd.append('files', file);
-    feed(botById.mgr, `uploading ${file.name}…`);
+    feed(botById.mgr, `uploading ${file.name}… (${(file.size / 1048576).toFixed(1)} MB)`);
     try {
       const r = await (await fetch('/api/upload', { method: 'POST', body: fd })).json();
       r.skipped.forEach((n) => feed(botById.mgr, `hindi tinanggap: ${n} (type o size)`));
@@ -925,7 +931,10 @@
   resize(); fit(); makePortraits();
   document.querySelector('#managerBar .avatar').outerHTML = avatar(botById.mgr);
   feed(botById.mgr, 'Good morning team! Office is open 🌅');
-  connectLive().then(() => { if (!live) startPipeline('compliance', 'Data_Privacy_Act_RA10173.pdf'); });
-  setTimeout(() => startPipeline('content', 'vlog_day3.mp4'), 2600);
+  connectLive().then(() => {
+    if (live) return;
+    startPipeline('compliance', 'Data_Privacy_Act_RA10173.pdf');
+    setTimeout(() => startPipeline('content', 'vlog_day3.mp4'), 1400);
+  });
   requestAnimationFrame(frame);
 })();

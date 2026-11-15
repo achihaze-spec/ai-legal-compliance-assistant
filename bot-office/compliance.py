@@ -203,7 +203,8 @@ def score(res: CheckResult) -> tuple[int, str]:
     return s, level
 
 
-def render_report(name: str, text: str, pages: int, res: CheckResult, risk: int, level: str) -> str:
+def render_report(name: str, text: str, pages: int, res: CheckResult, risk: int, level: str,
+                  ai_review: dict | None = None) -> str:
     e = html.escape
     color = {"HIGH": "#e84a5f", "MEDIUM": "#ff8a3d", "LOW": "#3ddc84", "INFO": "#4da3ff"}[level]
     words = len(text.split())
@@ -216,6 +217,18 @@ def render_report(name: str, text: str, pages: int, res: CheckResult, risk: int,
                        f' <small>{e(c["ref"])}</small><br>{detail}</li>')
         return "".join(out) or '<li class="muted">None</li>'
 
+    ai_html = ""
+    if ai_review:
+        sev = {"high": "🔴", "medium": "🟠", "low": "🟡"}
+        items = "".join(
+            f'<li><b>{sev.get(i["severity"], "•")} {e(i["title"])}</b> <small>{e(i["law"])}</small><br>'
+            f'<q>{e(i["quote"])}</q><br><span class="fix">→ {e(i["fix"])}</span></li>' for i in ai_review["issues"])
+        corr = "".join(f"<li>{e(c)}</li>" for c in ai_review["rule_check_corrections"])
+        ai_html = (f'<div class="card ai"><h2>✨ Claude review · {e(ai_review["risk_level"])} risk</h2>'
+                   f'<p>{e(ai_review["summary"])}</p>'
+                   + ("<p class=\"muted\">Only the first part of this long document was reviewed.</p>" if ai_review.get("partial") else "")
+                   + (f"<ul>{items}</ul>" if items else "")
+                   + (f"<h2>Corrections to the keyword check</h2><ul>{corr}</ul>" if corr else "") + "</div>")
     flags = "".join(f'<li class="flag"><b>🚩 {e(f["title"])}</b><br><q>{e(f["evidence"])}</q></li>' for f in res.flags)
     if res.doc_type == "regulation":
         body = ('<h2>Key obligations found</h2><p class="muted">This looks like a law/regulation, so Risk Scout lists the '
@@ -233,10 +246,11 @@ def render_report(name: str, text: str, pages: int, res: CheckResult, risk: int,
 h1{{margin:0 0 6px;font-size:22px}} h2{{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:#9c96c9;margin-top:26px}}
 ul,ol{{padding-left:18px}} li{{margin:10px 0}} small{{color:#8d87b8}} q{{color:#b9b3e6;font-style:italic;font-size:13px}}
 .fix{{color:#ffd23d;font-size:13.5px}} .flag b{{color:#ff8a8a}} .muted{{color:#6f6a99}}
-.meta{{color:#9c96c9;font-size:13px}} .disc{{color:#6f6a99;font-size:12px;margin-top:30px}}</style></head><body>
+.meta{{color:#9c96c9;font-size:13px}} .ai{{border-color:#a77bff}} .ai h2{{color:#c4a6ff;margin-top:0}} .disc{{color:#6f6a99;font-size:12px;margin-top:30px}}</style></head><body>
 <div class="card"><h1>🛡️ {e(name)}</h1>
 <div class="meta">{e(TYPE_LABEL.get(res.doc_type, res.doc_type))} · {pages} page(s) · {words:,} words · {datetime.now():%b %d, %Y %I:%M %p}</div>
-<p><span class="lvl">{level}{"" if level == "INFO" else f" RISK · {risk}/100"}</span></p></div>
+<p><span class="lvl">{level}{"" if level == "INFO" else " RISK"}</span>{"" if level == "INFO" else f' <small>keyword score {risk}/100</small>'}</p></div>
+{ai_html}
 {body}
-<p class="disc">Automated keyword-based screening by the Bot Office compliance bots. Not legal advice. Have a lawyer review before relying on it.</p>
+<p class="disc">Automated screening by the Bot Office compliance bots (keyword checks{" + Claude review" if ai_review else ""}). Not legal advice. Have a lawyer review before relying on it.</p>
 </body></html>"""
