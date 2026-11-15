@@ -26,6 +26,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 
 import affiliate
 import ai
+import veo
 import compliance
 import content
 
@@ -161,6 +162,7 @@ async def affiliate_final(jid: str, n: int, clips: list[UploadFile] = File(defau
 
 
 def _save_job(job: dict) -> None:
+    job["est_per_clip"] = veo.estimate(1)
     (AFFILIATE / job["id"] / "job.json").write_text(json.dumps(job, ensure_ascii=False, indent=1), encoding="utf-8")
     (REPORTS / f"{job['id']}.html").write_text(affiliate.render_page(job), encoding="utf-8")
 
@@ -259,13 +261,157 @@ def run_affiliate_final(req: dict) -> None:
          text=f"Affiliate video {n}: final na ({render['seconds']}s) 🎬")
 
 
+# ───────────────────────── Auto (Google Veo) ─────────────────────────
+@app.get("/api/settings")
+def get_settings():
+    return veo.public()
+
+
+@app.post("/api/settings")
+async def set_settings(body: dict):
+    return veo.save(body)
+
+
+@app.post("/api/settings/test")
+def test_settings():
+    if not veo.configured():
+        return {"ok": False, "error": "Wala pang API key / project."}
+    try:
+        return veo.test_connection()
+    except Exception as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
+
+
+def _load_job(jid: str) -> dict:
+    p = AFFILIATE / jid / "job.json"
+    if not re.fullmatch(r"[0-9a-f]{10}", jid) or not p.exists():
+        raise HTTPException(404)
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def _own_rows(v: dict) -> list[int]:
+    return [i for i, r in enumerate(v["rows"], 1) if r["footage"] == "own"]
+
+
+@app.post("/api/affiliate/{jid}/stills")
+def auto_stills(jid: str, n: int = 0, row: int = 0):
+    job = _load_job(jid)
+    if not veo.configured():
+        return {"ok": False, "error": "I-set up muna ang Google key sa ⚙️ Settings."}
+    job["busy"] = "stills"
+    _save_job(job)
+    _affiliate_jobs.put({"kind": "stills", "id": jid, "n": n, "row": row})
+    return {"ok": True}
+
+
+@app.post("/api/affiliate/{jid}/animate")
+def auto_animate(jid: str, n: int = 0):
+    job = _load_job(jid)
+    s = veo.load()
+    targets = [n] if n else list(range(1, 6))
+    clips = 0
+    for k in targets:
+        v = job["videos"][k - 1]
+        stills = v.get("auto", {}).get("stills", {})
+        missing = [r for r in _own_rows(v) if str(r) not in stills]
+        if missing:
+            return {"ok": False, "error": f"Video {k}: wala pang still ang shot {missing}. Gawin muna ang stills."}
+        clips += len(_own_rows(v))
+    cost = veo.estimate(clips, s)
+    spent = job.get("auto_spent", 0.0)
+    if spent + cost > s["budget_per_job"]:
+        return {"ok": False, "error": f"Lalampas sa budget: ≈${cost} + nagastos na ${spent:.2f} > limit ${s['budget_per_job']}. "
+                                      "Taasan ang budget sa Settings o mag-animate ng isang video lang."}
+    job["busy"] = "animate"
+    _save_job(job)
+    _affiliate_jobs.put({"kind": "animate", "id": jid, "targets": targets})
+    return {"ok": True, "estimate": cost}
+
+
+def _refs(job: dict) -> list[Path]:
+    refs = [Path(job["model"]["photo"])] if job.get("model") else []
+    if job["seller"]:
+        refs.append(Path(job["seller"][0]))  # first photo = product reference
+    return refs
+
+
+def run_auto_stills(req: dict) -> None:
+    jid = req["id"]
+    job = json.loads((AFFILIATE / jid / "job.json").read_text(encoding="utf-8"))
+    refs = _refs(job)
+    targets = [req["n"]] if req["n"] else list(range(1, 6))
+    emit(bot="vid", type="task", task=f"{jid}-stills", text="Gumagawa ng stills (Gemini image)", secs=8)
+    made, errors = 0, []
+    for k in targets:
+        v = job["videos"][k - 1]
+        auto = v.setdefault("auto", {"stills": {}, "clips": {}})
+        prompts = {p["row"]: p["prompt"] for p in v["prompts"]}
+        for r in ([req["row"]] if req["row"] else _own_rows(v)):
+            out = OUTBOX / jid / f"still_v{k}_r{r}_{int(time.time())}.png"
+            try:
+                veo.make_still(prompts[r], refs, out)
+                auto["stills"][str(r)] = out.name
+                made += 1
+            except Exception as exc:
+                errors.append(f"V{k} shot {r}: {str(exc)[:160]}")
+        _save_job(job)
+    job["busy"] = ""
+    job["auto_error"] = "; ".join(errors)
+    _save_job(job)
+    emit(bot="vid", type="done", task=f"{jid}-stills", url=f"/reports/{jid}.html", ok=not errors or made > 0,
+         text=f"{made} stills ready, i-check bago i-animate" + (f" ({len(errors)} error)" if errors else ""))
+
+
+def run_auto_animate(req: dict) -> None:
+    jid = req["id"]
+    job = json.loads((AFFILIATE / jid / "job.json").read_text(encoding="utf-8"))
+    s = veo.load()
+    emit(bot="vid", type="task", task=f"{jid}-veo", text="Veo: ginagawa ang video clips", secs=30)
+    done, errors = 0, []
+    for k in req["targets"]:
+        v = job["videos"][k - 1]
+        auto = v.setdefault("auto", {"stills": {}, "clips": {}})
+        prompts = {p["row"]: p["prompt"] for p in v["prompts"]}
+        neg = affiliate.MODEL_NEGATIVE if job.get("model") else affiliate.NEGATIVE
+        clips = []
+        for r in _own_rows(v):
+            out = OUTBOX / jid / f"clip_v{k}_r{r}.mp4"
+            try:
+                veo.make_clip(OUTBOX / jid / auto["stills"][str(r)], veo.motion_prompt(prompts[r]), neg, out, s)
+                job["auto_spent"] = round(job.get("auto_spent", 0.0) + veo.estimate(1, s), 2)
+                auto["clips"][str(r)] = out.name
+                clips.append(out)
+            except Exception as exc:
+                errors.append(f"V{k} shot {r}: {str(exc)[:160]}")
+                break
+            _save_job(job)
+        if len(clips) == len(_own_rows(v)):
+            render = affiliate.render_video(v, k, [Path(p) for p in job["seller"]], clips, None,
+                                            AFFILIATE / jid / f"work{k}", OUTBOX / jid / f"video{k}.mp4")
+            render["rev"] = v.get("render", {}).get("rev", 0) + 1
+            v["render"] = render
+            v["policy"] = [f for f in v["policy"] if "Original footage" not in f["msg"]]
+            done += 1
+        _save_job(job)
+    job["busy"] = ""
+    job["auto_error"] = "; ".join(errors)
+    _save_job(job)
+    emit(bot="vid", type="done", task=f"{jid}-veo", url=f"/reports/{jid}.html", ok=done > 0,
+         text=f"Veo: {done} final video(s) ready 🎬 (≈${job.get('auto_spent', 0):.2f} so far)" + (f"; {errors[0]}" if errors else ""))
+
+
 def affiliate_worker() -> None:
+    runners = {"plan": run_affiliate_plan, "final": run_affiliate_final, "stills": run_auto_stills, "animate": run_auto_animate}
     while True:
         req = _affiliate_jobs.get()
         try:
-            (run_affiliate_plan if req["kind"] == "plan" else run_affiliate_final)(req)
+            runners[req["kind"]](req)
         except Exception as exc:
             emit(bot="mgr", type="log", text=f"Affiliate error: {exc}")
+            if req.get("id") and (AFFILIATE / req["id"] / "job.json").exists():
+                job = json.loads((AFFILIATE / req["id"] / "job.json").read_text(encoding="utf-8"))
+                job["busy"], job["auto_error"] = "", str(exc)[:300]
+                _save_job(job)
 
 
 @app.get("/outbox/{job_id}/{fname}")
@@ -443,8 +589,10 @@ if __name__ == "__main__":
     print(f"  ffmpeg : {content.FFMPEG or 'MISSING'} ({content.FFMPEG_SOURCE})"
           + ("" if content.FFMPEG else "  -> run: pip install imageio-ffmpeg"))
     print(f"  Claude : {'on' if ai.available() else 'off (set ANTHROPIC_API_KEY to enable)'}")
+    print(f"  Google : {'configured' if veo.configured() else 'not set (⚙️ Settings in the office)'}")
     print(f"  Open http://localhost:{PORT}")
     if os.environ.get("BOT_OFFICE_OPEN") == "1":  # set by the start-* scripts
         import webbrowser
         threading.Timer(2.0, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    # localhost only by default: the API can spend money on your Google account
+    uvicorn.run(app, host=os.environ.get("BOT_OFFICE_HOST", "127.0.0.1"), port=PORT)

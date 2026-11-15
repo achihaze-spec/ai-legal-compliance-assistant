@@ -97,6 +97,16 @@ product, so scripts drop "suot/ginamit ko" lines, and every video reminds you to
 3 ways to style, walk/runway, detail check, galaw test), with only the hook and "Check the basket" on screen. The default
 setting is a bright minimalist studio; add music from the platform's own music library when posting.
 
+**🤖 Auto with Google (Veo).** Click ⚙️ in the office, paste a Gemini API key from aistudio.google.com (billing must be
+on: Veo has no free tier; a Google AI Pro/Ultra subscription's Flow credits do not cover the API, but its monthly Google
+Cloud credits can be applied to the billing account), press **Test connection** and pick the image and video models it
+lists. Vertex AI also works (API key in express mode, or a project with `gcloud auth application-default login`).
+On a results page: **🖼 Stills** makes a 9:16 first frame per AI shot from your model + product photos (the first product
+photo is the product reference). Check them, 🔄 redo any, then **🎬 Animate**: Veo turns each still into a clip and the
+final video is edited automatically. A cost estimate is shown and a per-product budget cap blocks overspending.
+Posting stays manual (TikTok's API needs an audited app and can't add library music; Shopee has no posting API).
+The server listens on localhost only (`BOT_OFFICE_HOST` to change). `BOT_OFFICE_FAKE_GOOGLE=1` runs the flow without Google.
+
 If the shop blocks the link, the product name is taken from the URL itself and your photos/notes are used.
 
 ## Swapping in real pixel art

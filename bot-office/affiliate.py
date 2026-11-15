@@ -672,6 +672,17 @@ def render_page(job: dict) -> str:
         status = ("<span class='pill draft'>DRAFT · kailangan ng sariling footage</span>" if v["render"].get("draft", True)
                   else "<span class='pill ok'>FINAL · may original footage</span>")
         vid = f"/outbox/{job['id']}/video{n}.mp4"
+        own = [i for i, r in enumerate(v["rows"], 1) if r["footage"] == "own"]
+        st = v.get("auto", {}).get("stills", {})
+        figs = "".join(
+            (f"<figure><img src='/outbox/{job['id']}/{e(st[str(r)])}' alt=''><figcaption>Shot {r} "
+             f"<button class='mini' data-act='redo' data-n='{n}' data-row='{r}'>🔄</button></figcaption></figure>") if str(r) in st
+            else f"<figure class='empty'><div>Shot {r}</div><figcaption>wala pa</figcaption></figure>" for r in own)
+        est = round(len(own) * job.get("est_per_clip", 0), 2)
+        auto_box = (f"<h3>🤖 Auto (Google)</h3><div class='stills'>{figs}</div>"
+                    f"<button class='btn' data-act='stills' data-n='{n}'>🖼 Gawa ng stills</button> "
+                    f"<button class='btn' data-act='animate' data-n='{n}'>🎬 Animate ang video na 'to (≈${est})</button>"
+                    "<p class='muted'>Tingnan muna ang stills: tama ba ang mukha at ang produkto? 🔄 para ulitin ang isa.</p>")
         cards.append(f"""<section class="card"><div class="vidwrap"><video src="{vid}?v={v['render'].get('rev', 0)}" controls playsinline></video>
 <a class="btn" href="{vid}" download>⬇ Download</a></div><div class="body">
 <h2>Video {n}: {e(v['style'])}</h2>{status} <span class="muted">📅 {e(v.get('slot', ''))}</span>
@@ -681,12 +692,22 @@ def render_page(job: dict) -> str:
 <p class="muted">Pinned comment: {e(v['pinned_comment'])}</p>
 <h3>Policy check</h3><ul class="pol">{pol}</ul>
 <h3>Scene prompts{' (AI model)' if job.get('model') else ''}</h3>{prompts or '<p class="muted">Walang AI shots.</p>'}
-<h3>Gawing final</h3><p class="muted">I-upload ang mga clip mo para sa 🎥 shots (sunod-sunod), at kung gusto mo, ang voiceover mo (mp3/m4a/wav).
+{auto_box}
+<h3>Gawing final (manual na clips)</h3><p class="muted">I-upload ang mga clip mo para sa 🎥 shots (sunod-sunod), at kung gusto mo, ang voiceover mo (mp3/m4a/wav).
 Kung AI clips ang gamit mo, i-on ang AI-generated label pag nag-post.</p>
 <form class="final" data-n="{n}"><input type="file" name="clips" multiple accept="video/*,image/*">
 <label>Voiceover: <input type="file" name="vo" accept="audio/*,video/*"></label><button class="btn">🎬 Gawing final</button><span class="msg"></span></form>
 </div></section>""")
     notes = "".join(f"<li>{e(x)}</li>" for x in job["notes"])
+    total_est = round(sum(len([r for r in v["rows"] if r["footage"] == "own"]) for v in job["videos"]) * job.get("est_per_clip", 0), 2)
+    busy = job.get("busy", "")
+    auto_head = f"""<div class="head"><h2>🤖 Auto gamit ang Google</h2>
+<p class="muted">1) Stills (mura) → 2) i-check mo → 3) Animate (Veo, may bayad) → 4) kusang final video. Nagastos sa job na 'to: ≈${job.get('auto_spent', 0):.2f}</p>
+{'<p class="busy">⏳ Ginagawa: ' + e(busy) + '... (kusang magre-refresh)</p>' if busy else ''}
+{'<p class="err">⚠️ ' + e(job['auto_error']) + '</p>' if job.get('auto_error') else ''}
+<button class="btn" data-act="stills" data-n="0">🖼 Stills para sa lahat ng 5</button>
+<button class="btn" data-act="animate" data-n="0">🎬 Animate lahat (≈${total_est})</button>
+<span class="msg" id="automsg"></span></div>"""
     m = job.get("model")
     model_box = "" if not m else f"""<div class="head"><h2>🤖 AI model: {e(m['name'])}</h2>
 <p class="muted">Lock (huwag baguhin sa bawat eksena): {e(m['look'])}; suot ang {e(m['outfit'])}. Setting: {e(m['setting'])}.</p>
@@ -695,7 +716,7 @@ Kung AI clips ang gamit mo, i-on ang AI-generated label pag nag-post.</p>
 <li>2-3 takes kada eksena, 8s max. Kapag nag-iba ang itsura ng produkto, takpan ng totoong product photo sa edit.</li>
 <li>I-upload ang clips sa "Gawing final" ng bawat video. <b>I-on ang AI-generated label</b> sa pag-post.</li></ol></div>"""
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Affiliate videos: {e(p['name'] or 'product')}</title>
-<meta name="viewport" content="width=device-width,initial-scale=1"><style>
+<meta name="viewport" content="width=device-width,initial-scale=1">{'<meta http-equiv="refresh" content="8">' if busy else ''}<style>
 body{{font:15px/1.5 system-ui,sans-serif;background:#0d0b1a;color:#e9e6ff;margin:0;padding:24px}} .wrap{{max-width:1100px;margin:0 auto}}
 .head,.card{{background:#17132e;border:1px solid #3a3270;border-radius:16px;padding:18px 20px;margin-bottom:18px}}
 .card{{display:flex;gap:22px;flex-wrap:wrap}} .vidwrap{{display:flex;flex-direction:column;gap:8px}} video{{width:270px;aspect-ratio:9/16;background:#000;border-radius:14px}}
@@ -705,15 +726,25 @@ pre{{white-space:pre-wrap;background:#0d0b1a;border-radius:10px;padding:12px;fon
 .pill{{display:inline-block;border-radius:99px;padding:3px 10px;font-weight:700;font-size:12px}} .pill.draft{{background:#e84a5f33;color:#ff8a8a}} .pill.ok{{background:#3ddc8433;color:#3ddc84}}
 .hooks li.pick{{color:#ffd23d;font-weight:700}} .pol li.fixed{{color:#7fd4ff}} .pol li.warn{{color:#ffb86b}} .pol li.ok{{color:#3ddc84}}
 .btn,button{{background:#ff6fae;color:#1a0d18;border:0;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;text-decoration:none;text-align:center}}
-summary{{cursor:pointer;color:#c4a6ff;margin:6px 0}} form.final{{display:flex;gap:10px;flex-wrap:wrap;align-items:center}}</style></head><body><div class="wrap">
+summary{{cursor:pointer;color:#c4a6ff;margin:6px 0}}
+.stills{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}} figure{{margin:0;width:96px}} figure img{{width:96px;aspect-ratio:9/16;object-fit:cover;border-radius:8px}}
+figure.empty div{{width:96px;aspect-ratio:9/16;border:1px dashed #3a3270;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6f6a99;font-size:12px}}
+figcaption{{font-size:11px;color:#9c96c9}} .mini{{padding:1px 5px;font-size:11px}} .busy{{color:#ffd23d}} .err{{color:#ff8a8a}} form.final{{display:flex;gap:10px;flex-wrap:wrap;align-items:center}}</style></head><body><div class="wrap">
 <div class="head"><h1>🛒 {e(p['name'] or 'Product')}</h1><div class="muted">{e(p['url'])} · scripts by {e(job['author'])} ·
 {'hawak mo ang product' if job['owns'] else 'hindi pa hawak (walang first-person claims)'}</div><ul>{notes}</ul></div>
-{model_box}{''.join(cards)}
+{auto_head}{model_box}{''.join(cards)}
 <p class="muted">Automated policy screening batay sa TikTok Shop at Shopee content rules (originality, claims, disclosure). Nagbabago ang rules,
 kaya i-double check sa Affiliate Center bago mag-post.</p></div>
 <script>
 document.querySelectorAll('button.copy').forEach(b => b.onclick = () => {{
   navigator.clipboard.writeText(b.previousElementSibling.innerText); b.textContent = 'Copied ✅'; }});
+document.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {{
+  const act = b.dataset.act, n = b.dataset.n || 0, row = b.dataset.row || 0;
+  if (act === 'animate' && !confirm('Gagamit ito ng Veo at may bayad sa Google account mo. Ituloy?')) return;
+  const url = act === 'animate' ? `/api/affiliate/{job['id']}/animate?n=${{n}}` : `/api/affiliate/{job['id']}/stills?n=${{n}}&row=${{row}}`;
+  b.disabled = true; const r = await fetch(url, {{ method: 'POST' }}); const j = await r.json();
+  document.getElementById('automsg').textContent = j.ok ? 'Nagsimula na…' : j.error; if (j.ok) setTimeout(() => location.reload(), 1500); else b.disabled = false;
+}});
 document.querySelectorAll('form.final').forEach(f => f.onsubmit = async (ev) => {{
   ev.preventDefault(); const msg = f.querySelector('.msg'); msg.textContent = 'Uploading…';
   const r = await fetch('/api/affiliate/{job['id']}/' + f.dataset.n + '/final', {{ method: 'POST', body: new FormData(f) }});
