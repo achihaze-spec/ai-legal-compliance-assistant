@@ -119,7 +119,8 @@ async def _save_uploads(files, folder: Path, allowed: set, prefix: str) -> list[
 
 @app.post("/api/affiliate")
 async def affiliate_start(url: str = Form(""), owns: str = Form("0"), notes: str = Form(""),
-                          photos: list[UploadFile] = File(default=[])):
+                          photos: list[UploadFile] = File(default=[]), model_photo: UploadFile | None = File(default=None),
+                          model_name: str = Form(""), model_look: str = Form(""), model_outfit: str = Form(""), model_setting: str = Form("")):
     url = url.strip()
     if not url and not any(p.filename for p in photos):
         raise HTTPException(400, "Maglagay ng product link o photos.")
@@ -129,7 +130,15 @@ async def affiliate_start(url: str = Form(""), owns: str = Form("0"), notes: str
     folder = AFFILIATE / jid
     folder.mkdir(parents=True)
     imgs = await _save_uploads(photos, folder, content.IMAGE_EXT, "photo")
-    _affiliate_jobs.put({"kind": "plan", "id": jid, "url": url, "owns": owns in ("1", "true", "on"), "notes": notes, "photos": imgs})
+    mph = await _save_uploads([model_photo] if model_photo else [], folder, content.IMAGE_EXT, "model")
+    model = None
+    if mph:
+        model = {"photo": str(mph[0]), "name": (model_name.strip() or "Mira-V2")[:40],
+                 "look": model_look.strip() or "exactly as in the model reference photo (same face, hair and skin tone)",
+                 "outfit": model_outfit.strip() or "a simple fitted black top and the product",
+                 "setting": model_setting.strip()}
+    _affiliate_jobs.put({"kind": "plan", "id": jid, "url": url, "owns": owns in ("1", "true", "on"), "notes": notes,
+                         "photos": imgs, "model": model})
     emit(bot="cap", type="task", task=f"{jid}-cap", text=f"Write 5 affiliate scripts: {url or 'uploaded photos'}", secs=MIN_STEP_SECS["cap"])
     return {"ok": True, "job": jid, "page": f"/reports/{jid}.html"}
 
@@ -170,7 +179,15 @@ def run_affiliate_plan(req: dict) -> None:
     prod["name"] = notes["name"] or prod["name"]
     prod.update(features=notes["features"], problem=notes["problem"], warning=notes["warning"],
                 category=affiliate.categorize(prod["name"], f"{prod['description']} {req['notes']}"))
-    videos, lock, author = affiliate.plan_videos(prod, req["owns"])
+    # an AI model never actually used the product, so no first-person use claims when one is in the video
+    owns = req["owns"] and not req.get("model")
+    if req.get("model") and not req["model"]["setting"]:
+        req["model"]["setting"] = (affiliate.LOOKBOOK_SETTING if prod["category"] == "fashion"
+                                   else "a bright, cozy living room with soft daylight from a window")
+    videos, lock, author = affiliate.plan_videos(prod, owns, req.get("model"))
+    if req.get("model") and not videos[0].get("no_vo"):
+        for v in videos:
+            affiliate.model_visuals(v, req["model"], prod["category"] == "fashion")
     _paced("cap", t0)
     emit(bot="cap", type="done", task=f"{jid}-cap", text=f"5 scripts para sa {prod['name'] or 'product'} (by {author})")
 
@@ -186,9 +203,11 @@ def run_affiliate_plan(req: dict) -> None:
         job_notes.append("Walang features sa notes: may [placeholder] sa scripts. Ilagay ang features (galing sa label/listing) at gumawa ulit.")
     fixes = 0
     for v in videos:
-        v["policy"] = affiliate.policy_check(v, req["owns"])
+        v["policy"] = affiliate.policy_check(v, owns)
         fixes += sum(f["level"] == "fixed" for f in v["policy"])
-        v["prompts"] = affiliate.scene_prompts(v, lock)
+        v["prompts"] = affiliate.scene_prompts(v, lock, req.get("model"))
+        if req.get("model"):
+            v["policy"].append({"level": "warn", "msg": "AI model: i-on ang AI-generated label sa pag-post; walang 'suot/ginamit ko' na linya"})
     job_notes += affiliate.distinct_check(videos)
     _paced("reg", t0)
     emit(bot="reg", type="done", task=f"{jid}-policy", text=f"Policy check: {fixes} auto-fix, drafts need original footage before posting")
@@ -213,7 +232,10 @@ def run_affiliate_plan(req: dict) -> None:
     _paced("sched", t0)
     emit(bot="sched", type="done", task=f"{jid}-sched", text=f"5 posts: {videos[0]['slot']} → {videos[-1]['slot']}")
 
-    job = {"id": jid, "product": {k: prod[k] for k in ("url", "name", "description", "category")}, "owns": req["owns"],
+    if req.get("model"):
+        job_notes.append("AI model sa video: dapat AI-generated persona mo ito o ikaw mismo, hindi totoong tao na walang pahintulot. "
+                         "Gumamit ng totoong product photos para sa close-up ng detalye; puwedeng iba ang fit na gawa ng AI.")
+    job = {"id": jid, "product": {k: prod[k] for k in ("url", "name", "description", "category")}, "owns": owns, "model": req.get("model"),
            "author": author, "lock": lock, "seller": [str(p) for p in seller], "videos": videos, "notes": job_notes}
     _save_job(job)
     emit(bot="post", type="task", task=f"{jid}-post", text="Package affiliate videos", secs=MIN_STEP_SECS["post"])

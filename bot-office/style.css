@@ -105,3 +105,8 @@ span.avatar::before, span.avatar::after { content: ""; position: absolute; top: 
 .affform .primary { background: #ff6fae; color: #1a0d18; border: 0; border-radius: 10px; padding: 11px; font-weight: 800; font-size: 15px; cursor: pointer; }
 .affform .primary:disabled { opacity: .6; cursor: wait; }
 #affMsg { font-size: 13px; color: #ffd23d; min-height: 1em; }
+.affform .modelbox { background: #0d0b1a; border: 1px solid #3a3270; border-radius: 10px; padding: 8px 10px; }
+.affform .modelbox summary { cursor: pointer; color: #c4a6ff; font-size: 13px; }
+.affform .modelbox label { margin-top: 8px; }
+.affform input[type=text] { background: #17132e; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
+.affform { max-height: 92%; overflow-y: auto; }
