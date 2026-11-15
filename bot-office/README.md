@@ -28,7 +28,7 @@ Open `bot-office/index.html` in a browser. No install and no build step.
 
 ## Live mode: the bots do real work
 ```bash
-pip install -r bot-office/requirements.txt   # and install ffmpeg for video editing
+pip install -r bot-office/requirements.txt   # includes imageio-ffmpeg, a bundled ffmpeg
 python bot-office/server.py                  # open http://localhost:8800
 ```
 A red **LIVE** badge appears. Drop files on the office:
@@ -37,6 +37,10 @@ A red **LIVE** badge appears. Drop files on the office:
 |---|---|---|
 | PDF / DOCX / HTML / TXT | Doc Reader extracts it → Reg Checker checks it against RA 10173 or contract essentials (+ red flags) → Risk Scout scores it | Risk report (📄 link in the feed) |
 | Video / image | Video Editor makes a 9:16 1080×1920 version (max 60s) + thumbnail → Caption Writer writes hook/caption/hashtags → Scheduler books the next 12NN/7PM Manila slot → Poster packages it | "Ready to post" page with preview, copy-caption and download |
+
+**ffmpeg** is found in this order: the `FFMPEG_PATH` env var, `ffmpeg` on your PATH, then the copy bundled
+with `imageio-ffmpeg` (installed by requirements.txt, works on Windows/Mac/Linux). `server.py` prints which one it uses
+at startup.
 
 Files land in `bot-office/data/` (`reports/`, `outbox/<job>/`, `calendar.json`; git-ignored).
 
