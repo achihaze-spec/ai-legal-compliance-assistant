@@ -26,13 +26,30 @@ Open `bot-office/index.html` in a browser. No install and no build step.
 | Content | Poster | Publishes to the platforms |
 | — | Bot Manager | Status reports, checks on busy bots |
 
-## Hooking up real bots (later)
-Right now the work is simulated. To drive it from a real backend:
+## Live mode: the bots do real work
+```bash
+pip install -r bot-office/requirements.txt   # and install ffmpeg for video editing
+python bot-office/server.py                  # open http://localhost:8800
+```
+A red **LIVE** badge appears. Drop files on the office:
 
-- Open `index.html?feed=/api/bots/events`. The page polls that URL every 3s and expects
-  `[{ "bot": "reg", "type": "task" | "done" | "log", "text": "...", "secs": 8 }]`.
-- Or call it from JS: `BotOffice.assign('reg', 'Check DPA Sec. 12')`,
-  `BotOffice.startPipeline('content', 'vlog.mp4')`, `BotOffice.applyEvent({...})`.
+| You drop | What happens | Result |
+|---|---|---|
+| PDF / DOCX / HTML / TXT | Doc Reader extracts it → Reg Checker checks it against RA 10173 or contract essentials (+ red flags) → Risk Scout scores it | Risk report (📄 link in the feed) |
+| Video / image | Video Editor makes a 9:16 1080×1920 version (max 60s) + thumbnail → Caption Writer writes hook/caption/hashtags → Scheduler books the next 12NN/7PM Manila slot → Poster packages it | "Ready to post" page with preview, copy-caption and download |
+
+Files land in `bot-office/data/` (`reports/`, `outbox/<job>/`, `calendar.json`; git-ignored).
+
+**Claude (optional).** With the `anthropic` package and an `ANTHROPIC_API_KEY` (or `ant auth login`),
+Reg Checker adds a Claude review (plain-language summary, issues with exact quotes and law sections,
+corrections to the keyword check) and Caption Writer writes Taglish captions. Without a key the bots
+use keyword checks and caption templates. `BOT_OFFICE_MODEL` changes the model; `BOT_OFFICE_AI=off` turns it off.
+
+**Not automated yet:** actually posting to TikTok/Instagram/Facebook/YouTube needs each platform's API
+and app approval, so Poster stops at "ready to post".
+
+API: `GET /api/health`, `POST /api/upload` (multipart `files`), `GET /api/bots/events?after=N`,
+`GET /api/calendar`, `GET /reports/<job>.html`.
 
 ## Swapping in real pixel art
 All art is drawn in `office.js` with canvas shapes. The bots are cartoon kids (`LOOKS` sets each one's hair, skin, outfit and accessory), and the furniture is `drawFurniture` / `drawWalls`.
