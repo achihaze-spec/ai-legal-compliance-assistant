@@ -10,6 +10,7 @@ Claude review documents and write captions (optional).
 """
 from __future__ import annotations
 
+import os
 import queue
 import re
 import threading
@@ -260,11 +261,16 @@ def static(name: str):
     return FileResponse(HERE / name)
 
 
+PORT = int(os.environ.get("BOT_OFFICE_PORT", "8800"))
+
 if __name__ == "__main__":
     import uvicorn
     print("Bot Office setup check:")
     print(f"  ffmpeg : {content.FFMPEG or 'MISSING'} ({content.FFMPEG_SOURCE})"
           + ("" if content.FFMPEG else "  -> run: pip install imageio-ffmpeg"))
     print(f"  Claude : {'on' if ai.available() else 'off (set ANTHROPIC_API_KEY to enable)'}")
-    print("  Open http://localhost:8800")
-    uvicorn.run(app, host="0.0.0.0", port=8800)
+    print(f"  Open http://localhost:{PORT}")
+    if os.environ.get("BOT_OFFICE_OPEN") == "1":  # set by the start-* scripts
+        import webbrowser
+        threading.Timer(2.0, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
