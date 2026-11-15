@@ -55,7 +55,7 @@ def emit(**ev) -> None:
 @app.get("/api/health")
 def health():
     return {"ok": True, "live": ["doc", "reg", "risk", "vid", "cap", "sched", "post"],
-            "claude": ai.available(), "ffmpeg": bool(content.FFMPEG)}
+            "claude": ai.available(), "ffmpeg": bool(content.FFMPEG), "ffmpeg_source": content.FFMPEG_SOURCE}
 
 
 @app.get("/api/bots/events")
@@ -262,4 +262,9 @@ def static(name: str):
 
 if __name__ == "__main__":
     import uvicorn
+    print("Bot Office setup check:")
+    print(f"  ffmpeg : {content.FFMPEG or 'MISSING'} ({content.FFMPEG_SOURCE})"
+          + ("" if content.FFMPEG else "  -> run: pip install imageio-ffmpeg"))
+    print(f"  Claude : {'on' if ai.available() else 'off (set ANTHROPIC_API_KEY to enable)'}")
+    print("  Open http://localhost:8800")
     uvicorn.run(app, host="0.0.0.0", port=8800)

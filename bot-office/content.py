@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -27,15 +28,34 @@ MAX_SECONDS = 60
 VIDEO_EXT = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"}
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
-FFMPEG = shutil.which("ffmpeg")
-FFPROBE = shutil.which("ffprobe")
+def _find_ffmpeg() -> tuple[str | None, str]:
+    """FFMPEG_PATH env var > ffmpeg on PATH > the copy bundled with `pip install imageio-ffmpeg`."""
+    env = os.environ.get("FFMPEG_PATH")
+    if env and Path(env).is_file():
+        return env, "FFMPEG_PATH"
+    if shutil.which("ffmpeg"):
+        return shutil.which("ffmpeg"), "system"
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe(), "imageio-ffmpeg"
+    except Exception:  # not installed, or no binary for this platform
+        return None, "missing"
+
+
+FFMPEG, FFMPEG_SOURCE = _find_ffmpeg()
+FFPROBE = shutil.which("ffprobe")  # optional: duration falls back to parsing `ffmpeg -i`
 
 
 # ───────────────────────── Video Editor ─────────────────────────
 
 def _duration(path: Path) -> float | None:
     if not FFPROBE:
-        return None
+        if not FFMPEG:
+            return None
+        # the bundled ffmpeg has no ffprobe; read "Duration: HH:MM:SS.xx" from its banner
+        out = subprocess.run([FFMPEG, "-hide_banner", "-i", str(path)], capture_output=True, text=True, timeout=60)
+        m = re.search(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)", out.stderr)
+        return int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3]) if m else None
     try:
         out = subprocess.run([FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
                              capture_output=True, text=True, timeout=60)
