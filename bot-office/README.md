@@ -6,6 +6,15 @@ When it doesn't, it hangs out in the lounge (sofa, beanbags, billiards, arcade) 
 ## Run it
 Open `bot-office/index.html` in a browser. No install and no build step.
 
+## Pinakamadaling paraan (walang terminal)
+1. Kailangan ng **Python** (libre): https://www.python.org/downloads/. Sa Windows, i-check ang **"Add python.exe to PATH"** sa installer.
+2. I-double-click ang:
+   - **Windows:** `start-windows.bat`
+   - **Mac:** `start-mac.command` (kung ayaw buksan: right-click → Open → Open)
+   - **Linux:** `start-linux.sh`
+3. Sa unang beses, mag-i-install muna ito (1-3 minuto). Pagkatapos, kusang bubukas ang opisina sa browser.
+4. Huwag isara ang itim na window habang ginagamit. Isara ito para ihinto.
+
 ## What you can do
 - **Click a bot** to open its panel (current task, queue, history, Give task / Upload / Break).
 - **Drag files onto the office** (or onto a specific bot):
