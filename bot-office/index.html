@@ -49,6 +49,13 @@
           <label class="check"><input type="checkbox" name="owns" value="1" /> Hawak ko / nagamit ko na ang product</label>
           <label>Product photos <small>(2-3 malinaw na photo, lalo na kung hindi mabasa ang link)</small>
             <input name="photos" type="file" accept="image/*" multiple /></label>
+          <details class="modelbox"><summary>🤖 AI model reference (opsyonal, para sa UGC na may model)</summary>
+            <label>Model photo <small>(AI persona mo o ikaw mismo, walang watermark)</small><input name="model_photo" type="file" accept="image/*" /></label>
+            <label>Model name <small>(unique, hal. Mira-V2)</small><input name="model_name" type="text" placeholder="Mira-V2" /></label>
+            <label>Itsura <small>(edad, buhok, mukha, para sa lock)</small><input name="model_look" type="text" placeholder="early 30s, long dark wavy hair, warm smile" /></label>
+            <label>Outfit <small>(ang top + ang produkto)</small><input name="model_outfit" type="text" placeholder="fitted black crop top and the olive skort" /></label>
+            <label>Setting<input name="model_setting" type="text" placeholder="bright living room, monstera plant, cream sofa" /></label>
+          </details>
           <label>Notes <small>(features mula sa label/listing, isa kada linya; puwede rin ang "problem:" at "warning:")</small>
             <textarea name="notes" rows="4" placeholder="Leak-proof lid&#10;Keeps drinks cold 12 hours&#10;problem: pawis na tumbler sa bag"></textarea></label>
           <p class="muted">Walang presyo at walang pangalan ng platform ang lalabas sa videos. "Check the basket" ang CTA, at may #ad.</p>

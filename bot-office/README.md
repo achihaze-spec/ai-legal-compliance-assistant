@@ -87,6 +87,16 @@ Why drafts first: TikTok Shop and Shopee penalise unoriginal content (seller-pho
 Every posted video needs original footage. If you use AI clips, turn on the AI-generated label when posting. Rules change,
 so double-check the platforms' affiliate content guidelines.
 
+**AI model reference (UGC with a model).** Open "🤖 AI model reference" in the form and add your model photo (your own AI
+persona or yourself, never a real person without consent), a unique model name (e.g. `Mira-V2`), her look, the outfit and
+the setting. Scene prompts then lock the same face, outfit and setting in every scene (Pablo consistency workflow: attach
+the model photo and a clean product photo to every scene, make a still first, then animate). An AI model never used the
+product, so scripts drop "suot/ginamit ko" lines, and every video reminds you to turn on the AI-generated label.
+
+**OOTD products (fashion + model).** No voiceover: the model displays the clothes in a lookbook style (walk-in and poses,
+3 ways to style, walk/runway, detail check, galaw test), with only the hook and "Check the basket" on screen. The default
+setting is a bright minimalist studio; add music from the platform's own music library when posting.
+
 If the shop blocks the link, the product name is taken from the URL itself and your photos/notes are used.
 
 ## Swapping in real pixel art

@@ -207,6 +207,82 @@ def template_videos(p: dict, owns: bool) -> list[dict]:
     return vids
 
 
+SHOWCASE_STYLES = ["Lookbook walk-in", "3 ways to style", "Walk / runway", "Detail check", "Galaw test"]
+LOOKBOOK_SETTING = ("a bright minimalist neutral studio with white arched walls, a cream boucle sofa, dried pampas grass "
+                    "in white ceramic vases, light wood floor, soft diffused daylight")
+
+
+def fashion_showcase_videos(p: dict, model: dict) -> list[dict]:
+    """OOTD showcase: no voiceover, the model wears and displays the item; short on-screen text only."""
+    n, m = _short(p["name"]), model["name"]
+    f = (p["features"] + ["[detail 1]", "[detail 2]", "[detail 3]"])[:3]
+    F = [x[:1].upper() + x[1:] for x in f]
+    R = lambda s, e, footage, visual, text, en="", outfit=None: dict(start=s, end=e, footage=footage, visual=visual, vo="", text=text,
+                                                                    visual_en=en, **({"outfit": outfit} if outfit else {}))
+    end = lambda s, e: R(s, e, "own", f"{m} final pose, nakaharap sa camera, kita ang buong outfit", "Check the basket",
+                         "She settles into a relaxed final pose facing the camera, one hand lightly on her hip, soft smile; the full outfit is visible")
+    vids = [
+        {"style": SHOWCASE_STYLES[0], "title": "Lookbook", "hooks": ["OOTD check", f"Today's fit: {n}", "Simple pero ang ganda"],
+         "rows": [R(0, 4, "own", f"{m} pumapasok sa frame mula sa kaliwa, humihinto sa gitna at ngumingiti sa camera", "OOTD check",
+                    "She walks into frame from the left, stops at center and smiles at the camera"),
+                  R(4, 10, "own", f"{m} hinahawakan ang top at inaayos ang waistband ng {n}, nakatingin pababa saka sa camera", "",
+                    "She lightly touches the hem of her top and smooths the waistband of the skort, glances down, then back at the camera"),
+                  R(10, 16, "own", f"{m} hand on hip, half-turn para makita ang gilid at hiwa ng {n}, inaayos ang buhok", "",
+                    "Hand on hip, she does a slow half-turn to show the side and the asymmetric hem, then tucks her hair behind one ear"),
+                  R(16, 20, "seller", "Seller photo: detail ng produkto, slow zoom", ""),
+                  end(20, 24)]},
+        {"style": SHOWCASE_STYLES[1], "title": "3 ways", "hooks": [f"3 ways to style this {n.split()[-1].lower()}", "Isang skort, 3 outfits", "Saan mo susuotin?"],
+         "rows": [R(0, 3, "own", f"{m} suot ang {n} at black crop top, nakatayo sa gitna", "3 ways to style",
+                    "She stands at center and gives a small wave and smile to the camera", "a fitted black crop top"),
+                  R(3, 9, "own", f"Look 1: {m} suot ang {n} at fitted black crop top, umiikot", "Look 1: casual",
+                    "She turns slowly in a full circle to show the casual look", "a fitted black crop top"),
+                  R(9, 15, "own", f"Look 2: {m} suot ang {n} at white button-down blouse, naglalakad", "Look 2: office",
+                    "She walks a few steps toward the camera and stops in a confident pose", "a white button-down blouse tucked in"),
+                  R(15, 21, "own", f"Look 3: {m} suot ang {n} at oversized cream knit sweater", "Look 3: weekend",
+                    "She adjusts the sweater sleeves and does a relaxed half-turn", "an oversized cream knit sweater, front tucked in"),
+                  end(21, 24)]},
+        {"style": SHOWCASE_STYLES[2], "title": "Walk", "hooks": ["Lakad-lakad lang", "Walk check", "Kita ang hiwa pag naglalakad"],
+         "rows": [R(0, 3, "own", f"{m} naglalakad papunta sa camera, full body", "Walk check",
+                    "Full body: she walks toward the camera with an easy, natural stride"),
+                  R(3, 9, "own", f"{m} lumiliko at naglalakad palayo, kita ang likod ng {n}", n,
+                    "She turns and walks away from the camera, showing the back of the skort"),
+                  R(9, 15, "own", f"{m} humihinto at umiikot, gumagalaw ang laylayan", F[2],
+                    "She stops and spins once slowly; the hem moves naturally"),
+                  R(15, 20, "own", f"Side view: {m} naglalakad, kita ang hugis ng {n}", F[0],
+                    "Side view tracking shot as she walks across the room, showing the silhouette of the skort"),
+                  end(20, 24)]},
+        {"style": SHOWCASE_STYLES[3], "title": "Detail", "hooks": ["Close-up check", "Tingnan natin ang details", "Zoom in tayo"],
+         "rows": [R(0, 3, "own", f"{m} suot ang {n}, camera dahan-dahang lumalapit", "Close-up check",
+                    "She stands still and smiles while the camera slowly pushes in from full body to waist level"),
+                  R(3, 8, "own", f"Close-up: waistband ng {n} habang inaayos ni {m}", F[0],
+                    "Close-up at waist level: her hands smooth the high waistband of the skort"),
+                  R(8, 13, "seller", "Seller photo: detail na makikita ang loob / inner part", F[1]),
+                  R(13, 18, "own", f"Close-up: laylayan at hiwa ng {n} habang gumagalaw si {m}", F[2],
+                    "Close-up on the asymmetric hem as she shifts her weight from one leg to the other"),
+                  end(18, 22)]},
+        {"style": SHOWCASE_STYLES[4], "title": "Galaw", "hooks": ["Upo, tayo, lakad", "Galaw test", "Paano siya pag gumagalaw?"],
+         "rows": [R(0, 3, "own", f"{m} suot ang {n}, nakatayo sa gitna", "Galaw test",
+                    "She stands at center, full body, and smiles at the camera"),
+                  R(3, 8, "own", f"{m} umuupo sa sofa, kita ang fit ng {n}", "Upo",
+                    "She sits down on the cream sofa naturally and crosses her legs"),
+                  R(8, 13, "own", f"{m} tumatayo at inaayos ang {n}", "Tayo",
+                    "She stands up from the sofa and smooths the front of the skort"),
+                  R(13, 18, "own", f"{m} naglalakad sa kuwarto", "Lakad", "She walks across the room with a relaxed stride"),
+                  R(18, 21, "seller", "Seller photo: buong produkto", F[1]),
+                  end(21, 24)]},
+    ]
+    tags = ["ad"] + CAT_TAGS[p["category"]] + ["ootd"]
+    for v in vids:
+        for r in v["rows"][1:-1]:
+            r["text"] = ""  # lookbook look: only the hook and the CTA on screen
+        v["hook"] = v["hooks"][0]
+        v["caption"] = f"{v['hooks'][0]}. {F[0]}, {f[1][:1].lower() + f[1][1:]}. Check the basket!"
+        v["hashtags"] = list(dict.fromkeys(tags))[:5]
+        v["pinned_comment"] = "Check the basket para sa sizes at kulay!"
+        v["no_vo"] = True
+    return vids
+
+
 PLAN_SCHEMA = {
     "type": "object",
     "properties": {
@@ -254,8 +330,10 @@ Hard rules for every vo, text, hook, caption and pinned comment:
 product_lock: one sentence describing only what is known about the product's look (type, colors, visible text); write [unknown] for what is not known."""
 
 
-def plan_videos(p: dict, owns: bool) -> tuple[list[dict], str, str]:
+def plan_videos(p: dict, owns: bool, model: dict | None = None) -> tuple[list[dict], str, str]:
     """Returns (videos, product_lock, author)."""
+    if model and p["category"] == "fashion":  # OOTD: model displays the clothes, no voiceover
+        return fashion_showcase_videos(p, model), f"the {p['name'] or 'garment'} exactly as in the product reference photo", "showcase template"
     facts = (f"Product name: {p['name'] or '[unknown]'}\nCategory: {p['category']}\n"
              f"Listing description: {p['description'][:3000] or '[none]'}\n"
              f"Creator notes - features: {', '.join(p['features']) or '[none]'}; problem it solves: {p['problem'] or '[none]'}; "
@@ -501,33 +579,81 @@ NEGATIVE = ("deformed hands, extra fingers, fused fingers, unnatural grip, plast
             "blurry product text, changing proportions, incorrect color, any human face")
 
 
-def scene_prompts(v: dict, lock: str) -> list[dict]:
-    setting = "a bright, tidy Filipino home, wooden table, soft natural window light from the left, a small green plant in the background"
+MODEL_NEGATIVE = ("deformed hands, extra fingers, fused fingers, unnatural grip, distorted facial features, inconsistent identity, "
+                  "plastic-looking skin, excessive retouching, harsh lighting, oversaturated colors, floating objects, flickering, "
+                  "excessive camera shake, visual glitches, added text, captions, subtitles, logos, watermarks, warped fabric, "
+                  "changing pattern, wrong fit, changing garment color, shifting hem, garment shape that differs from the product reference, "
+                  "unnatural gait, stiff body, jittery camera, sudden zooms")
+DEFAULT_SETTING = "a bright, tidy Filipino home, wooden table, soft natural window light from the left, a small green plant in the background"
+
+
+def scene_prompts(v: dict, lock: str, model: dict | None = None) -> list[dict]:
+    """Pablo Scene Format. Faceless hands-only by default; on-camera with MODEL LOCK when a model reference is given."""
+    setting = (model or {}).get("setting") or DEFAULT_SETTING
     out, first = [], True
     for i, r in enumerate(v["rows"], 1):
         if r["footage"] != "own":
             continue
         secs = min(8, max(2, round(r["end"] - r["start"])))
-        sa = (f"Vertical 9:16 video. {setting.capitalize()}. Calm, cozy mood." if first else
+        sa = (f"Vertical 9:16 video. {setting[:1].upper() + setting[1:]}. Calm, cozy, natural mood." if first else
               "Continue in the same setting from Scene 1, maintaining consistent surroundings, lighting, and atmosphere.")
-        prompt = (f"Scene {i}: {r['visual']} ({secs} Seconds)\n\n"
+        action = r.get("visual_en") or r["visual"]
+        lookbook = bool(v.get("no_vo"))
+        if model:
+            wear = f"{r['outfit']} with the skort from the product reference photo" if r.get("outfit") else model["outfit"]
+            subject = (f"Use the same woman, model {model['name']}, from the model reference photo, preserving her facial features, "
+                       f"{model['look']}, wearing {wear}. {action}. Slow, natural, relaxed movement; "
+                       + ("natural, confident, relaxed fashion-lookbook posing." if lookbook else
+                          "she looks like a real person filming a casual try-on video."))
+            placement = (f"She wears {lock}, matching the product reference photo exactly: same cut, asymmetric shape, hem, "
+                         "waistband, color and fabric texture. Do not redesign or reinterpret the garment. Keep it consistent throughout the clip.")
+            camera = (("Full-body to knees-up framing, eye level, smooth slow dolly or gentle pan following her, no shake. Soft diffused daylight, "
+                       "airy neutral palette, natural skin texture, clean premium lookbook feel, subtle film grain.") if v.get("no_vo") else
+                      ("Medium shot from the waist or knees up, eye-level phone camera, subtle handheld sway. Soft daylight, gentle shadows, "
+                       "natural skin texture, warm color grading, subtle film grain. Looks like authentic UGC filmed on a phone at home."))
+            cont = ("* Preserve the model's face and hair exactly as in Scene 1. Only the top changes; the skort stays identical.\n"
+                    if r.get("outfit") else "* Preserve the model's face, hair and outfit exactly as in Scene 1.\n")
+            neg = MODEL_NEGATIVE
+        else:
+            subject = (f"Faceless: frame the shot as a close-up of a person's hands only, no face visible. {r['visual']}. "
+                       "Slow, natural, relaxed movement.")
+            placement = (f"Place {lock} in the frame. The front label must face the camera clearly and remain unobstructed. "
+                         "Preserve the original packaging exactly, including shape, color, logo, typography, printed text and proportions. "
+                         "Do not redesign or reinterpret it.")
+            camera = ("Close-up, subtle handheld sway. Soft natural light, gentle shadows, shallow depth of field, "
+                      "warm color grading, subtle film grain. Feels like an authentic product video filmed in a real home.")
+            cont = "* Same hands and sleeves as Scene 1.\n"
+            neg = NEGATIVE
+        prompt = (f"Scene {i}: {action} ({secs} Seconds)\n\n"
                   f"{'Setting and Atmosphere' if first else 'Setting and Continuity'}\n{sa}\n\n"
-                  f"Subject and Action\nFaceless: frame the shot as a close-up of a person's hands only, no face visible. {r['visual']}. "
-                  "Slow, natural, relaxed movement.\n\n"
-                  f"Product Placement and Accuracy\nPlace {lock} in the frame. The front label must face the camera clearly and remain unobstructed. "
-                  "Preserve the original packaging exactly, including shape, color, logo, typography, printed text and proportions. "
-                  "Do not redesign or reinterpret it.\n\n"
-                  "Camera and Visual Style\nClose-up, subtle handheld sway. Soft natural light, gentle shadows, shallow depth of field, "
-                  "warm color grading, subtle film grain. Feels like an authentic product video filmed in a real home.\n\n"
+                  f"Subject and Action\n{subject}\n\n"
+                  f"Product Placement and Accuracy\n{placement}\n\n"
+                  f"Camera and Visual Style\n{camera}\n\n"
                   + ("" if first else "Continuity Requirements\n* Match the setting, lighting, and visual style of Scene 1.\n"
-                                      "* Same hands and sleeves as Scene 1.\n* Do not introduce new products, props, text, or logos.\n\n")
-                  + f"Technical Requirements\n* Aspect ratio: 9:16 vertical\n* Duration: {secs} seconds\n* Style: Photorealistic lifestyle\n"
+                                      f"{cont}* Do not introduce new products, props, text, or logos.\n\n")
+                  + f"Technical Requirements\n* Aspect ratio: 9:16 vertical\n* Duration: {secs} seconds\n"
+                  f"* Style: {'Photorealistic fashion lookbook' if lookbook else 'Photorealistic lifestyle UGC'}\n"
                   "* Motion: slow, subtle, natural\n* Text and logos: none added\n"
-                  "* Audio: soft ambient room sound. No music, no speech, no subtitles.\n\n"
-                  f"Negative Prompt\n{NEGATIVE}")
+                  + ("* Subject consistency: match the model reference photo\n" if model else "")
+                  + "* Audio: soft ambient room sound. No music, no speech, no subtitles.\n\n"
+                  f"Negative Prompt\n{neg}")
         out.append({"row": i, "prompt": prompt})
         first = False
     return out
+
+
+def model_visuals(v: dict, model: dict, fashion: bool) -> None:
+    """On-camera shots for an AI model (replaces hands-only visuals on 'own' rows)."""
+    name = model["name"]
+    shots = ([f"{name} hawak ang skort sa harap ng camera, nakangiti", f"{name} suot ang skort, full body, dahan-dahang umiikot",
+              f"Medium shot: {name} inaayos ang waistband, makikita ang high waist", f"{name} naglalakad papunta sa camera, kita ang asymmetric na hiwa",
+              f"{name} nakaupo sa sofa, kita ang fit ng skort"] if fashion else
+             [f"{name} hawak ang produkto sa harap ng camera", f"{name} ginagamit ang produkto, medium shot",
+              f"Close-up: kamay ni {name} habang ginagamit ang produkto", f"{name} nakangiti habang hawak ang produkto sa tabi ng mukha"])
+    k = 0
+    for r in v["rows"]:
+        if r["footage"] == "own":
+            r["visual"] = shots[k % len(shots)]; k += 1
 
 
 # ───────────────────────── result page ─────────────────────────
@@ -550,17 +676,24 @@ def render_page(job: dict) -> str:
 <a class="btn" href="{vid}" download>⬇ Download</a></div><div class="body">
 <h2>Video {n}: {e(v['style'])}</h2>{status} <span class="muted">📅 {e(v.get('slot', ''))}</span>
 <h3>Hooks</h3><ol class="hooks">{''.join(f"<li{' class=pick' if h == v['hook'] else ''}>{e(h)}</li>" for h in v['hooks'])}</ol>
-<h3>Script</h3><table><tr><th>Oras</th><th>Footage</th><th>Visual</th><th>Voiceover (Taglish)</th><th>Text</th></tr>{rows}</table>
+<h3>Script{' (walang voiceover: on-screen text lang, lagyan ng music mula sa music library ng platform)' if v.get('no_vo') else ''}</h3><table><tr><th>Oras</th><th>Footage</th><th>Visual</th><th>Voiceover (Taglish)</th><th>Text</th></tr>{rows}</table>
 <h3>Caption</h3><pre class="cap">{e(cap)}</pre><button class="copy">📋 Copy caption</button>
 <p class="muted">Pinned comment: {e(v['pinned_comment'])}</p>
 <h3>Policy check</h3><ul class="pol">{pol}</ul>
-<h3>Scene prompts</h3>{prompts or '<p class="muted">Walang AI shots.</p>'}
+<h3>Scene prompts{' (AI model)' if job.get('model') else ''}</h3>{prompts or '<p class="muted">Walang AI shots.</p>'}
 <h3>Gawing final</h3><p class="muted">I-upload ang mga clip mo para sa 🎥 shots (sunod-sunod), at kung gusto mo, ang voiceover mo (mp3/m4a/wav).
 Kung AI clips ang gamit mo, i-on ang AI-generated label pag nag-post.</p>
 <form class="final" data-n="{n}"><input type="file" name="clips" multiple accept="video/*,image/*">
 <label>Voiceover: <input type="file" name="vo" accept="audio/*,video/*"></label><button class="btn">🎬 Gawing final</button><span class="msg"></span></form>
 </div></section>""")
     notes = "".join(f"<li>{e(x)}</li>" for x in job["notes"])
+    m = job.get("model")
+    model_box = "" if not m else f"""<div class="head"><h2>🤖 AI model: {e(m['name'])}</h2>
+<p class="muted">Lock (huwag baguhin sa bawat eksena): {e(m['look'])}; suot ang {e(m['outfit'])}. Setting: {e(m['setting'])}.</p>
+<ol><li>Sa Google Flow (Ingredients/Frames) o Kling: i-attach ang <b>model reference photo</b> at ang <b>malinis na product photo</b> sa bawat eksena.</li>
+<li>Gumawa muna ng <b>still image</b> ng bawat eksena, tingnan kung tama ang mukha at ang skort, saka i-animate (image-to-video).</li>
+<li>2-3 takes kada eksena, 8s max. Kapag nag-iba ang itsura ng produkto, takpan ng totoong product photo sa edit.</li>
+<li>I-upload ang clips sa "Gawing final" ng bawat video. <b>I-on ang AI-generated label</b> sa pag-post.</li></ol></div>"""
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Affiliate videos: {e(p['name'] or 'product')}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"><style>
 body{{font:15px/1.5 system-ui,sans-serif;background:#0d0b1a;color:#e9e6ff;margin:0;padding:24px}} .wrap{{max-width:1100px;margin:0 auto}}
@@ -575,7 +708,7 @@ pre{{white-space:pre-wrap;background:#0d0b1a;border-radius:10px;padding:12px;fon
 summary{{cursor:pointer;color:#c4a6ff;margin:6px 0}} form.final{{display:flex;gap:10px;flex-wrap:wrap;align-items:center}}</style></head><body><div class="wrap">
 <div class="head"><h1>🛒 {e(p['name'] or 'Product')}</h1><div class="muted">{e(p['url'])} · scripts by {e(job['author'])} ·
 {'hawak mo ang product' if job['owns'] else 'hindi pa hawak (walang first-person claims)'}</div><ul>{notes}</ul></div>
-{''.join(cards)}
+{model_box}{''.join(cards)}
 <p class="muted">Automated policy screening batay sa TikTok Shop at Shopee content rules (originality, claims, disclosure). Nagbabago ang rules,
 kaya i-double check sa Affiliate Center bago mag-post.</p></div>
 <script>
