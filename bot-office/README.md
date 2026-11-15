@@ -93,6 +93,11 @@ the setting. Scene prompts then lock the same face, outfit and setting in every 
 the model photo and a clean product photo to every scene, make a still first, then animate). An AI model never used the
 product, so scripts drop "suot/ginamit ko" lines, and every video reminds you to turn on the AI-generated label.
 
+**Beauty products (beauty + model).** No voiceover: 5 application styles (swipe/set/go, multi-use lips and cheeks,
+shade check, quick GRWM, product reveal). On-screen text only from label features. The AI never "proves" claims
+(no transfer tests, no before/after); prompts require the tint color to match the product shade. Crop seller promo
+graphics to the product only: no prices, vouchers, ratings, sold counts or before/after panels.
+
 **OOTD products (fashion + model).** No voiceover: the model displays the clothes in a lookbook style (walk-in and poses,
 3 ways to style, walk/runway, detail check, galaw test), with only the hook and "Check the basket" on screen. The default
 setting is a bright minimalist studio; add music from the platform's own music library when posting.

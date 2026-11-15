@@ -183,9 +183,11 @@ def run_affiliate_plan(req: dict) -> None:
                 category=affiliate.categorize(prod["name"], f"{prod['description']} {req['notes']}"))
     # an AI model never actually used the product, so no first-person use claims when one is in the video
     owns = req["owns"] and not req.get("model")
-    if req.get("model") and not req["model"]["setting"]:
-        req["model"]["setting"] = (affiliate.LOOKBOOK_SETTING if prod["category"] == "fashion"
-                                   else "a bright, cozy living room with soft daylight from a window")
+    if req.get("model"):
+        req["model"]["kind"] = prod["category"]
+        if not req["model"]["setting"]:
+            req["model"]["setting"] = {"fashion": affiliate.LOOKBOOK_SETTING, "beauty": affiliate.BEAUTY_SETTING}.get(
+                prod["category"], "a bright, cozy living room with soft daylight from a window")
     videos, lock, author = affiliate.plan_videos(prod, owns, req.get("model"))
     if req.get("model") and not videos[0].get("no_vo"):
         for v in videos:
