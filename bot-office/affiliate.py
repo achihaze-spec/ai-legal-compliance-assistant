@@ -283,6 +283,77 @@ def fashion_showcase_videos(p: dict, model: dict) -> list[dict]:
     return vids
 
 
+BEAUTY_STYLES = ["Swipe, set, go", "Multi-use: labi at pisngi", "Shade check", "Mabilis na GRWM", "Product reveal"]
+BEAUTY_SETTING = ("a bright, minimal bedroom vanity with a round mirror, a white desk, a small vase of fresh flowers "
+                  "and soft window daylight")
+
+
+def beauty_showcase_videos(p: dict, model: dict) -> list[dict]:
+    """Beauty + AI model, no voiceover. Shows application only; never fabricates proof (no transfer tests,
+    no before/after). On-screen text comes only from the label/listing features."""
+    n, m = _short(p["name"]), model["name"]
+    f = (p["features"] + ["[feature 1 mula sa label]", "[feature 2]", "[feature 3]"])[:3]
+    F = [x[:1].upper() + x[1:] for x in f]
+    R = lambda s, e, footage, visual, text, en="": dict(start=s, end=e, footage=footage, visual=visual, vo="", text=text, visual_en=en)
+    end = lambda s, e: R(s, e, "own", f"{m} nakangiti sa camera, hawak ang tube sa tabi ng mukha", "Check the basket",
+                         "She smiles at the camera holding the tube next to her face, label facing the camera")
+    vids = [
+        {"style": BEAUTY_STYLES[0], "title": "Swipe set go", "hooks": ["Swipe, set, go", "Isang swipe lang", "Lip check"],
+         "rows": [R(0, 3, "own", f"{m} kinukuha ang {n} mula sa vanity at ipinapakita sa camera", "Swipe, set, go",
+                    "She picks up the tint tube from the vanity and shows it to the camera, label facing forward"),
+                  R(3, 8, "own", f"Close-up: binubuksan ang tube, kita ang applicator", F[0],
+                    "Close-up of her hands opening the tube; the doe-foot applicator comes out cleanly"),
+                  R(8, 14, "own", f"Close-up: {m} sine-swipe ang tint sa labi", F[1],
+                    "Close-up on her lips as she swipes the tint on evenly with the applicator, slow and neat"),
+                  R(14, 18, "own", f"{m} pinagdidikit ang labi at tumitingin sa salamin", "",
+                    "She presses her lips together softly and checks them in the mirror"),
+                  end(18, 22)]},
+        {"style": BEAUTY_STYLES[1], "title": "Multi-use", "hooks": ["Labi at pisngi, isang tint", "Multi-use check", "Blush din pala 'to?"],
+         "rows": [R(0, 3, "own", f"{m} hawak ang {n}, nakangiti", "Multi-use", "She holds up the tint and smiles at the camera"),
+                  R(3, 9, "own", f"Close-up: {m} naglalagay ng kaunting tint sa pisngi at bina-blend gamit ang daliri", "Sa pisngi",
+                    "Close-up: she dabs a small amount of tint on her cheek and blends it softly with her fingertips"),
+                  R(9, 15, "own", f"Close-up: {m} naglalagay ng tint sa labi", "Sa labi",
+                    "Close-up: she applies the same tint to her lips with the applicator"),
+                  R(15, 19, "seller", "Product photo (walang text)", F[2]),
+                  end(19, 23)]},
+        {"style": BEAUTY_STYLES[2], "title": "Shade check", "hooks": ["Shade check", "Ito yung kulay sa personal", "Swatch muna"],
+         "rows": [R(0, 3, "own", f"Kamay ni {m} hawak ang tube sa harap ng camera", "Shade check",
+                    "Her hand holds the tube up to the camera in soft daylight"),
+                  R(3, 8, "own", "Close-up: isang swatch sa likod ng kamay", "",
+                    "Close-up: she draws one smooth swatch of the tint on the back of her hand; the color matches the tube exactly"),
+                  R(8, 13, "own", "Close-up: dahan-dahang pinapaikot ang kamay sa ilaw para makita ang finish", F[0],
+                    "Close-up: she slowly tilts her hand in the daylight to show the soft matte finish of the swatch"),
+                  R(13, 18, "own", f"{m} naglalagay sa labi, medium close-up", "",
+                    "Medium close-up: she applies the tint to her lips and smiles"),
+                  end(18, 22)]},
+        {"style": BEAUTY_STYLES[3], "title": "GRWM", "hooks": ["Quick GRWM", "Last step bago umalis", "5-second lip"],
+         "rows": [R(0, 3, "own", f"{m} nakaupo sa vanity, inaayos ang buhok", "Quick GRWM",
+                    "She sits at the vanity, already dressed, and tucks her hair behind her ear"),
+                  R(3, 9, "own", f"{m} naglalagay ng {n} sa labi habang nakatingin sa salamin", "Last step: lips",
+                    "She applies the tint to her lips while looking into the round mirror"),
+                  R(9, 14, "own", f"{m} kinukuha ang bag at isinisilid ang tube", "",
+                    "She drops the tint tube into her small handbag and picks up the bag"),
+                  R(14, 18, "seller", "Product photo (walang text)", F[0]),
+                  end(18, 22)]},
+        {"style": BEAUTY_STYLES[4], "title": "Reveal", "hooks": [f"{n}", "Ang cute ng packaging", "Bagong lip tint check"],
+         "rows": [R(0, 4, "own", "Tube nakatayo sa vanity, mabagal na push-in ng camera", "New fave tint?",
+                    "The tint tube stands on the white vanity; the camera slowly pushes in"),
+                  R(4, 9, "own", f"Kamay ni {m} pinupulot ang tube at dahan-dahang iniikot para makita ang label", F[0],
+                    "Her hand picks up the tube and slowly rotates it to show the label"),
+                  R(9, 13, "seller", "Product photo (walang text)", F[1]),
+                  R(13, 18, "own", f"{m} naglalagay sa labi, nakangiti", F[2], "She applies the tint to her lips and smiles at the camera"),
+                  end(18, 22)]},
+    ]
+    tags = ["ad"] + CAT_TAGS[p["category"]] + ["liptint"]
+    for v in vids:
+        v["hook"] = v["hooks"][0]
+        v["caption"] = f"{v['hooks'][0]}. {F[0]}, {f[1][:1].lower() + f[1][1:]} ayon sa label. Check the basket!"
+        v["hashtags"] = list(dict.fromkeys(tags))[:5]
+        v["pinned_comment"] = "Check the basket para sa shades!"
+        v["no_vo"] = True
+    return vids
+
+
 PLAN_SCHEMA = {
     "type": "object",
     "properties": {
@@ -334,6 +405,8 @@ def plan_videos(p: dict, owns: bool, model: dict | None = None) -> tuple[list[di
     """Returns (videos, product_lock, author)."""
     if model and p["category"] == "fashion":  # OOTD: model displays the clothes, no voiceover
         return fashion_showcase_videos(p, model), f"the {p['name'] or 'garment'} exactly as in the product reference photo", "showcase template"
+    if model and p["category"] == "beauty":   # beauty: model shows application, no voiceover, no fabricated proof
+        return beauty_showcase_videos(p, model), f"the {p['name'] or 'product'} tube exactly as in the product reference photo", "beauty showcase template"
     facts = (f"Product name: {p['name'] or '[unknown]'}\nCategory: {p['category']}\n"
              f"Listing description: {p['description'][:3000] or '[none]'}\n"
              f"Creator notes - features: {', '.join(p['features']) or '[none]'}; problem it solves: {p['problem'] or '[none]'}; "
@@ -490,7 +563,7 @@ def _shot_card(row: dict, n: int, out: Path):
     y = 760
     for line in _wrap(d, _plain(row["visual"]), _font(58), W - 220):
         d.text((W // 2, y), line, font=_font(58), fill=(255, 255, 255), anchor="mm"); y += 76
-    d.text((W // 2, 1290), "sariling footage o AI clip, 9:16, faceless", font=_font(36), fill=(170, 160, 220), anchor="mm")
+    d.text((W // 2, 1290), "sariling footage o AI clip, 9:16", font=_font(36), fill=(170, 160, 220), anchor="mm")
     im.save(out, quality=92)
 
 
@@ -600,20 +673,32 @@ def scene_prompts(v: dict, lock: str, model: dict | None = None) -> list[dict]:
         action = r.get("visual_en") or r["visual"]
         lookbook = bool(v.get("no_vo"))
         if model:
-            wear = f"{r['outfit']} with the skort from the product reference photo" if r.get("outfit") else model["outfit"]
+            wear = f"{r['outfit']} with the product from the product reference photo" if r.get("outfit") else model["outfit"]
             subject = (f"Use the same woman, model {model['name']}, from the model reference photo, preserving her facial features, "
                        f"{model['look']}, wearing {wear}. {action}. Slow, natural, relaxed movement; "
-                       + ("natural, confident, relaxed fashion-lookbook posing." if lookbook else
+                       + ("natural, relaxed beauty-UGC energy, like filming her own makeup routine." if model.get("kind") == "beauty" else
+                          "natural, confident, relaxed fashion-lookbook posing." if lookbook else
                           "she looks like a real person filming a casual try-on video."))
-            placement = (f"She wears {lock}, matching the product reference photo exactly: same cut, asymmetric shape, hem, "
-                         "waistband, color and fabric texture. Do not redesign or reinterpret the garment. Keep it consistent throughout the clip.")
-            camera = (("Full-body to knees-up framing, eye level, smooth slow dolly or gentle pan following her, no shake. Soft diffused daylight, "
+            if model.get("kind") == "beauty":
+                placement = (f"When the product is in frame, show {lock}: same shape, color, logo, typography and printed text; label facing "
+                             "the camera when held up. The tint color on lips, cheeks or skin must match the product's shade exactly. "
+                             "Do not redesign the packaging. Show only normal application; no transfer tests, no before/after.")
+            else:
+                placement = (f"She wears {lock}, matching the product reference photo exactly: same cut, asymmetric shape, hem, "
+                             "waistband, color and fabric texture. Do not redesign or reinterpret the garment. Keep it consistent throughout the clip.")
+            camera = (("Close-up to medium close-up, eye level, steady phone-on-tripod look with gentle micro movement. Soft window daylight, "
+                       "natural skin texture with pores, true-to-life color, clean beauty UGC feel.") if model.get("kind") == "beauty" else
+                      ("Full-body to knees-up framing, eye level, smooth slow dolly or gentle pan following her, no shake. Soft diffused daylight, "
                        "airy neutral palette, natural skin texture, clean premium lookbook feel, subtle film grain.") if v.get("no_vo") else
                       ("Medium shot from the waist or knees up, eye-level phone camera, subtle handheld sway. Soft daylight, gentle shadows, "
                        "natural skin texture, warm color grading, subtle film grain. Looks like authentic UGC filmed on a phone at home."))
             cont = ("* Preserve the model's face and hair exactly as in Scene 1. Only the top changes; the skort stays identical.\n"
                     if r.get("outfit") else "* Preserve the model's face, hair and outfit exactly as in Scene 1.\n")
-            neg = MODEL_NEGATIVE
+            neg = MODEL_NEGATIVE if model.get("kind") != "beauty" else (
+                "deformed hands, extra fingers, distorted lips, smeared lipstick outside the lip line, color that differs from the product, "
+                "glossy wet look, distorted facial features, inconsistent identity, plastic-looking skin, excessive retouching, "
+                "distorted packaging, morphed text, misspelled branding, changed logo, duplicated products, added text, captions, "
+                "subtitles, watermarks, flickering, jittery camera")
         else:
             subject = (f"Faceless: frame the shot as a close-up of a person's hands only, no face visible. {r['visual']}. "
                        "Slow, natural, relaxed movement.")
@@ -632,7 +717,7 @@ def scene_prompts(v: dict, lock: str, model: dict | None = None) -> list[dict]:
                   + ("" if first else "Continuity Requirements\n* Match the setting, lighting, and visual style of Scene 1.\n"
                                       f"{cont}* Do not introduce new products, props, text, or logos.\n\n")
                   + f"Technical Requirements\n* Aspect ratio: 9:16 vertical\n* Duration: {secs} seconds\n"
-                  f"* Style: {'Photorealistic fashion lookbook' if lookbook else 'Photorealistic lifestyle UGC'}\n"
+                  f"* Style: {'Photorealistic beauty UGC' if model and model.get('kind') == 'beauty' else 'Photorealistic fashion lookbook' if lookbook else 'Photorealistic lifestyle UGC'}\n"
                   "* Motion: slow, subtle, natural\n* Text and logos: none added\n"
                   + ("* Subject consistency: match the model reference photo\n" if model else "")
                   + "* Audio: soft ambient room sound. No music, no speech, no subtitles.\n\n"
