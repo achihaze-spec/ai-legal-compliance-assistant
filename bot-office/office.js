@@ -43,6 +43,50 @@
     ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, 0, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill();
   }
 
+  // ───────────────────────── Sound effects ─────────────────────────
+  // Tiny synthesized sounds (Web Audio), so there are no audio files to ship.
+  // Browsers only allow audio after the user interacts with the page, so the
+  // AudioContext is created on the first click / key / drop.
+  const Sound = (() => {
+    let ac = null, master = null;
+    let muted = localStorage.getItem('botOfficeMuted') === '1';
+    const lastPlayed = {};
+    function unlock() {
+      if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      ac = new AC(); master = ac.createGain(); master.gain.value = 0.35; master.connect(ac.destination);
+    }
+    ['pointerdown', 'keydown', 'drop'].forEach((ev) => window.addEventListener(ev, unlock, { capture: true }));
+    // one soft note: frequency (Hz), start offset (s), length (s), waveform, loudness
+    function note(freq, at, len, type = 'sine', vol = 0.6, slideTo = null) {
+      const t0 = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t0);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + len);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+      o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + len + 0.05);
+    }
+    const SFX = {
+      task:  () => { note(660, 0, 0.09, 'triangle', 0.5); note(990, 0.08, 0.16, 'sine', 0.45); },             // pop-ding
+      done:  () => { note(784, 0, 0.12, 'triangle'); note(988, 0.1, 0.12, 'triangle'); note(1319, 0.2, 0.28, 'sine', 0.55); }, // chime
+      high:  () => { note(392, 0, 0.22, 'square', 0.22); note(311, 0.24, 0.34, 'square', 0.22); },           // uh-oh
+      error: () => { note(220, 0, 0.25, 'sawtooth', 0.25, 110); },                                           // bonk
+      blip:  () => { note(1200, 0, 0.06, 'sine', 0.35, 1600); },                                             // click a bot
+      upload:() => { note(300, 0, 0.18, 'sine', 0.35, 900); },                                               // whoosh up
+    };
+    return {
+      play(name) {
+        if (muted || !ac || ac.state !== 'running' || !SFX[name]) return;
+        const t = performance.now();
+        if (t - (lastPlayed[name] || 0) < 150) return; // don't machine-gun when many events arrive at once
+        lastPlayed[name] = t; SFX[name]();
+      },
+      get muted() { return muted; },
+      toggle() { muted = !muted; localStorage.setItem('botOfficeMuted', muted ? '1' : '0'); unlock(); if (!muted) SFX.blip(); return muted; },
+    };
+  })();
+
   // ───────────────────────── Map / zones ─────────────────────────
   const zoneOf = (x, y) => (y >= 8 ? 'lounge' : x >= 10 ? 'content' : 'compliance');
   function floorColor(x, y) {
@@ -223,6 +267,7 @@
     b.queue.push(t);
     feed(b, `got a task: ${text}`);
     if (!b.task && b.state !== 'break') say(b, 'Ako na! 🙋', 2);
+    Sound.play('task');
     return t;
   }
   function startPipeline(team, file) {
@@ -238,6 +283,7 @@
     b.log.unshift({ text: `${failed ? '⚠️' : '✅'} ${r.text || t.text}`, url: r.url });
     b.log.length = Math.min(b.log.length, 8);
     feed(b, r.text ? r.text : `done — ${t.text}`, r.url);
+    Sound.play(failed ? 'error' : r.level === 'HIGH' ? 'high' : 'done');
     if (failed) say(b, 'Hala, may problema 😵', 3);
     else if (r.level === 'HIGH') say(b, 'HIGH risk! 🚩', 3.5);
     else if (r.level === 'MEDIUM') say(b, 'Medium risk ⚠️', 3);
@@ -784,7 +830,7 @@
   function select(b) {
     selected = b; panelSig = '';
     panel.classList.toggle('hidden', !b);
-    if (b) { renderPanel(); if (!b.bubble) say(b, rand(['Hi! 👋', 'Yes boss?', 'Ano po?']), 1.6); }
+    if (b) { Sound.play('blip'); renderPanel(); if (!b.bubble) say(b, rand(['Hi! 👋', 'Yes boss?', 'Ano po?']), 1.6); }
   }
 
   document.getElementById('tabs').addEventListener('click', (e) => {
@@ -906,6 +952,7 @@
     polling = false;
   }
   async function uploadReal(file) {
+    Sound.play('upload');
     const fd = new FormData(); fd.append('files', file);
     feed(botById.mgr, `uploading ${file.name}… (${(file.size / 1048576).toFixed(1)} MB)`);
     try {
@@ -926,7 +973,12 @@
     feed(b, ev.text); say(b, ev.text.slice(0, 28));
   }
 
-  window.BotOffice = { bots: botById, assign, startPipeline, applyEvent, setDemo: (v) => { demo = v; document.getElementById('demoToggle').checked = v; } };
+  const muteBtn = document.getElementById('muteBtn');
+  const paintMute = () => { muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; muteBtn.title = Sound.muted ? 'Sound off (click to turn on)' : 'Sound on (click to mute)'; };
+  muteBtn.addEventListener('click', () => { Sound.toggle(); paintMute(); });
+  paintMute();
+
+  window.BotOffice = { sound: Sound, bots: botById, assign, startPipeline, applyEvent, setDemo: (v) => { demo = v; document.getElementById('demoToggle').checked = v; } };
 
   resize(); fit(); makePortraits();
   document.querySelector('#managerBar .avatar').outerHTML = avatar(botById.mgr);
