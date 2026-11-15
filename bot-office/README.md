@@ -21,6 +21,7 @@ Open `bot-office/index.html` in a browser. No install and no build step.
   - PDF / DOC / HTML / TXT → Compliance pipeline: Doc Reader → Reg Checker → Risk Scout
   - Video / image → Content pipeline: Video Editor → Caption Writer → Scheduler → Poster
 - **Tabs** highlight the Compliance or Content team. Scroll or use the buttons to zoom, and drag to pan.
+- **🔊 Sound**: a pop-ding when a bot gets a task, a chime when it finishes, an "uh-oh" for HIGH risk, a bonk on errors. Click 🔊/🔇 to mute (remembered). Sound starts after your first click, since browsers block audio until then.
 - **demo** checkbox: random sample tasks keep arriving so the office always looks alive.
 
 ## The bots

@@ -20,6 +20,7 @@ html, body { margin: 0; height: 100%; background: #0d0b1a; color: #e9e6ff;
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
 .dot.working { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; }
 .demo { cursor: pointer; user-select: none; }
+.mute { background: #221d40; border: 1px solid #332c60; border-radius: 8px; font-size: 15px; padding: 4px 8px; cursor: pointer; }
 
 .layout { display: flex; height: calc(100% - 52px); }
 .stage { position: relative; flex: 1; min-width: 0; }
