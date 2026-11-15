@@ -53,6 +53,7 @@ def available() -> bool:
 
 
 def _ask_json(system: str, user: str, schema: dict, max_tokens: int = 16000) -> dict | None:
+    global _disabled
     client = _get_client()
     if client is None:
         return None
@@ -67,7 +68,6 @@ def _ask_json(system: str, user: str, schema: dict, max_tokens: int = 16000) -> 
             messages=[{"role": "user", "content": user}],
         )
     except anthropic.AuthenticationError:
-        global _disabled
         _disabled = True
         log.warning("Claude: invalid credentials, using rule-based fallback")
         return None
@@ -79,6 +79,10 @@ def _ask_json(system: str, user: str, schema: dict, max_tokens: int = 16000) -> 
         return None
     except anthropic.APIConnectionError:
         log.warning("Claude: network error, using rule-based fallback")
+        return None
+    except Exception as exc:  # e.g. no usable credentials found at request time: never break the bots over optional AI
+        _disabled = True
+        log.warning("Claude unavailable (%s: %s), using rule-based fallback", type(exc).__name__, exc)
         return None
     if response.stop_reason in ("refusal", "max_tokens"):
         log.warning("Claude stopped with %s", response.stop_reason)
