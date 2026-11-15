@@ -1017,7 +1017,16 @@
     if (!j.ok) { setMsg.textContent = '❌ ' + j.error; return; }
     const fill = (id, arr) => { document.getElementById(id).innerHTML = arr.map((m) => `<option value="${m}">`).join(''); };
     fill('imgModels', j.image_models); fill('vidModels', j.video_models);
-    setMsg.textContent = `✅ Connected! Video models: ${j.video_models.join(', ') || 'WALA (baka Vertex lang ang may Veo)'} · Image: ${j.image_models.slice(0, 4).join(', ') || 'wala'}`;
+    setForm.elements.backend.value = j.backend;
+    if (j.video_models.length && !j.video_models.includes(setForm.elements.video_model.value)) setForm.elements.video_model.value = j.video_models[0];
+    if (j.image_models.length && !j.image_models.includes(setForm.elements.image_model.value)) setForm.elements.image_model.value = j.image_models[0];
+    const lines = Object.entries(j.results || {}).map(([b, r]) => r.ok
+      ? `${b === 'gemini' ? 'Gemini API' : 'Vertex AI'}: video = ${r.video_models.join(', ') || 'wala'}; image = ${r.image_models.slice(0, 4).join(', ') || 'wala'}`
+      : `${b === 'gemini' ? 'Gemini API' : 'Vertex AI'}: ❌ ${r.error}`);
+    const all = Object.entries(j.results || {}).filter(([, r]) => r.ok).map(([b, r]) => `${b}: ${r.all_models.join(', ')}`).join('\n\n');
+    setMsg.innerHTML = (j.video_models.length ? '✅ Handa ang video! Napili: <b>' + j.backend + '</b>. Pindutin ang 💾 Save.' : '⚠️ Gumagana ang key pero walang video model.')
+      + '<br>' + lines.map((l) => l.replace(/[<>&]/g, '')).join('<br>')
+      + '<details><summary>Lahat ng models (para kay Claude)</summary><pre style="white-space:pre-wrap;font-size:11px">' + all.replace(/[<>&]/g, '') + '</pre></details>';
   };
 
   const muteBtn = document.getElementById('muteBtn');

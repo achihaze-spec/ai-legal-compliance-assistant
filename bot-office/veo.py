@@ -89,23 +89,44 @@ def client(s: dict | None = None):
     return genai.Client(api_key=s["api_key"])
 
 
-def test_connection() -> dict:
-    """Lists models the key can use, split into image and video candidates."""
-    if FAKE:
-        return {"ok": True, "video_models": ["fake-veo"], "image_models": ["fake-image"], "other_models": 0}
-    c = client()
-    images, videos, other = [], [], 0
+def _scan(c) -> dict:
+    images, videos, names = [], [], []
     for m in c.models.list():
         name = (m.name or "").split("/")[-1]
         acts = [a.lower() for a in (m.supported_actions or [])]
         low = name.lower()
-        if "veo" in low or "video" in low or any("video" in a or "longrunning" in a for a in acts):
+        names.append(name)
+        if any(k in low for k in ("veo", "video", "omni")) or any("video" in a or "longrunning" in a for a in acts):
             videos.append(name)
         elif "image" in low or "imagen" in low:
             images.append(name)
-        else:
-            other += 1
-    return {"ok": True, "video_models": sorted(videos), "image_models": sorted(images), "other_models": other}
+    return {"ok": True, "video_models": sorted(videos), "image_models": sorted(images), "all_models": sorted(names)}
+
+
+def test_connection() -> dict:
+    """Tries the key on the Gemini API and on Vertex AI (express) and reports what each can use.
+    If only one backend has video models, that backend is selected automatically."""
+    if FAKE:
+        return {"ok": True, "backend": "gemini", "results": {"gemini": {"ok": True, "video_models": ["fake-veo"], "image_models": ["fake-image"],
+                "all_models": ["fake-image", "fake-veo"]}}, "video_models": ["fake-veo"], "image_models": ["fake-image"]}
+    s = load()
+    results = {}
+    for backend in ("gemini", "vertex"):
+        if backend == "vertex" and not s["api_key"] and not s["project"]:
+            continue
+        try:
+            results[backend] = _scan(client({**s, "backend": backend}))
+        except Exception as exc:
+            results[backend] = {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    ok = {b: r for b, r in results.items() if r.get("ok")}
+    if not ok:
+        return {"ok": False, "error": "; ".join(f"{b}: {r['error']}" for b, r in results.items()), "results": results}
+    with_video = [b for b, r in ok.items() if r["video_models"]]
+    chosen = s["backend"] if s["backend"] in with_video else (with_video[0] if with_video else s["backend"] if s["backend"] in ok else next(iter(ok)))
+    if chosen != s["backend"]:
+        save({"backend": chosen})
+    r = ok.get(chosen, next(iter(ok.values())))
+    return {"ok": True, "backend": chosen, "results": results, "video_models": r["video_models"], "image_models": r["image_models"]}
 
 
 def estimate(n_clips: int, s: dict | None = None) -> float:
@@ -150,6 +171,8 @@ def make_clip(still: Path, motion_prompt: str, negative: str, out: Path, s: dict
         return out
     from google.genai import types
     c = client(s)
+    if "veo" not in s["video_model"].lower():
+        return _clip_via_generate_content(c, still, motion_prompt, negative, out, s)
     op = c.models.generate_videos(
         model=s["video_model"],
         source=types.GenerateVideosSource(prompt=motion_prompt, image=types.Image.from_file(location=str(still))),
@@ -173,6 +196,22 @@ def make_clip(still: Path, motion_prompt: str, negative: str, out: Path, s: dict
     out.parent.mkdir(parents=True, exist_ok=True)
     video.save(str(out))
     return out
+
+
+def _clip_via_generate_content(c, still: Path, prompt: str, negative: str, out: Path, s: dict) -> Path:
+    """Experimental: Gemini models that return video from generate_content (VIDEO modality)."""
+    from google.genai import types
+    from PIL import Image
+    text = (f"{prompt}\n\nOutput: one vertical 9:16 video, about {s['clip_seconds']} seconds, starting from the attached image as "
+            f"the first frame. Avoid: {negative}")
+    resp = c.models.generate_content(model=s["video_model"], contents=[text, Image.open(still)],
+                                     config=types.GenerateContentConfig(response_modalities=["VIDEO"]))
+    for part in resp.parts or []:
+        if part.inline_data and (part.inline_data.mime_type or "").startswith("video"):
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(part.inline_data.data)
+            return out
+    raise RuntimeError(f"Walang video na ibinalik ang {s['video_model']}. Piliin ang ibang video model sa Settings.")
 
 
 def motion_prompt(scene_prompt: str) -> str:
