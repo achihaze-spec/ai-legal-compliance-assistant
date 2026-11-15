@@ -153,12 +153,15 @@ def template_videos(p: dict, owns: bool) -> list[dict]:
     lc = lambda t: t if t[:2].isupper() or t.startswith("[") else t[:1].lower() + t[1:]  # mid-sentence; keep acronyms
     F = [x[:1].upper() + x[1:] for x in f]
     prob = p["problem"] or "[problemang sinosolusyunan nito]"
-    found = "ginamit ko" if owns else "nakita ko"
+    fashion = p["category"] == "fashion"
+    found = ("sinuot ko" if fashion else "ginamit ko") if owns else "nakita ko"
+    many_colors = any(re.search(r"kulay|color|variant", x, re.I) for x in p["features"])
     cta = "Check the basket para makita mo!"
     R = lambda s, e, footage, visual, vo, text: {"start": s, "end": e, "footage": footage, "visual": visual, "vo": vo, "text": text}
     vids = [
         {"style": STYLES[0], "title": "Unboxing",
-         "hooks": [f"Unboxing tayo ng {n}", "Sulit ba 'to? Tingnan natin", "Ito yung matagal kong tinitingnan"],
+         "hooks": [f"Unboxing tayo ng {n}", "Sulit ba 'to? Tingnan natin",
+                   "Ilang kulay meron 'to? Tingnan natin" if many_colors else "Ito yung matagal kong tinitingnan"],
          "rows": [R(0, 3, "own", f"Close-up: kamay na binubuksan ang package ng {n}", f"Unboxing tayo ng {n}!", "Unboxing time"),
                   R(3, 10, "own", "Inilalabas ang produkto, ipinapakita lahat ng side", f"Ito na siya. Tingnan niyo yung itsura sa personal.", n),
                   R(10, 18, "own", "Kamay na ginagamit ang produkto, close-up", f"Ang bet ko dito: {lc(f[0])}. Tapos {lc(f[1])}.", f[0]),
@@ -176,15 +179,17 @@ def template_videos(p: dict, owns: bool) -> list[dict]:
          "rows": [R(0, 3, "own", "Aesthetic shot: produkto sa mesa, natural light, mabagal na push-in", "Small upgrade, pero ang laking difference.", "small upgrade, big difference"),
                   R(3, 8, "seller", "Product photo, detail", f"Ito yung {n}.", n),
                   R(8, 14, "own", "Kamay na ginagamit ito, slow motion", f"{F[0]}.", F[0]),
-                  R(14, 20, "own", "Lifestyle shot: produkto sa daily routine", f"Tapos {lc(f[1])}. Ang ganda lang sa daily routine.", F[1]),
+                  R(14, 20, "own", "Lifestyle shot: produkto sa daily routine", f"Tapos {lc(f[1])}. " + ("Bagay sa kahit anong top." if fashion else "Ang ganda lang sa daily routine."), F[1]),
                   R(20, 25, "seller", "Hero shot + arrow", cta, "Check the basket")]},
         {"style": STYLES[3], "title": "Label check",
-         "hooks": ["Totoo ba 'to? Check natin ang label", "Binasa ko ang label para sa'yo", "Bago ka bumili, panoorin mo muna"],
+         "hooks": (["Totoo ba 'to? Check natin ang details", "Close-up check bago ka bumili", "Bago ka bumili, panoorin mo muna"] if fashion else
+                   ["Totoo ba 'to? Check natin ang label", "Binasa ko ang label para sa'yo", "Bago ka bumili, panoorin mo muna"]),
          "rows": [R(0, 4, "own", "Kamay na hawak ang produkto, text na 'Totoo ba?'", f"Totoo ba yung sinasabi nila sa {n}? Check natin.", "Totoo ba?"),
                   R(4, 10, "seller", "Hero photo ng produkto", "Ito yung itsura niya.", n),
-                  R(10, 18, "own", "Mabagal na pan sa label / specs", f"Sa label: {lc(f[0])}. {F[1]}.", "Label check"),
+                  R(10, 18, "own", "Mabagal na close-up pan sa waistband, hiwa at loob" if fashion else "Mabagal na pan sa label / specs",
+                    (f"Tingnan niyo: {lc(f[0])}. {F[1]}." if fashion else f"Sa label: {lc(f[0])}. {F[1]}."), "Detail check" if fashion else "Label check"),
                   R(18, 24, "own", "Close-up ng detail ng produkto", f"{F[2]}.", F[2]),
-                  R(24, 30, "seller", "Hero shot + arrow", ("Para sa'kin, sulit. " if owns else "Kung bet mo rin, ") + "check the basket!", "Check the basket")]},
+                  R(24, 30, "seller", "Hero shot + arrow", ("Para sa'kin, sulit. Check the basket!" if owns else "Kung bet mo rin, check the basket!"), "Check the basket")]},
         {"style": STYLES[4], "title": "3 reasons",
          "hooks": [f"3 reasons kung bakit bet ko 'tong {n}", f"3 bagay tungkol sa {n}", "Bago mo i-skip: 3 reasons lang"],
          "rows": [R(0, 3, "own", "Produkto sa gitna ng frame, kamay na nagbibilang ng 3", "3 reasons kung bakit bet ko 'to.", "3 reasons"),
