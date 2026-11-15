@@ -218,7 +218,8 @@
 
   function assign(botId, text, opts = {}) {
     const b = botById[botId]; if (!b) return null;
-    const t = { text, secs: opts.secs || 8, progress: 0, next: opts.next || null, file: opts.file || null };
+    const t = { text, secs: opts.secs || 8, progress: 0, next: opts.next || null, file: opts.file || null,
+      external: !!opts.external, id: opts.id || null, finished: false, result: null };
     b.queue.push(t);
     feed(b, `got a task: ${text}`);
     if (!b.task && b.state !== 'break') say(b, 'Ako na! 🙋', 2);
@@ -232,9 +233,16 @@
   }
   function finishTask(b) {
     const t = b.task; b.task = null; b.done++; stats.done++;
-    b.log.unshift(`✅ ${t.text}`); b.log.length = Math.min(b.log.length, 8);
-    feed(b, `done — ${t.text}`);
-    say(b, rand(['Tapos! ✅', 'Done!', 'Next!', 'Ez 😎']), 2);
+    const r = t.result || {};
+    const failed = r.ok === false;
+    b.log.unshift({ text: `${failed ? '⚠️' : '✅'} ${r.text || t.text}`, url: r.url });
+    b.log.length = Math.min(b.log.length, 8);
+    feed(b, r.text ? r.text : `done — ${t.text}`, r.url);
+    if (failed) say(b, 'Hala, may problema 😵', 3);
+    else if (r.level === 'HIGH') say(b, 'HIGH risk! 🚩', 3.5);
+    else if (r.level === 'MEDIUM') say(b, 'Medium risk ⚠️', 3);
+    else if (r.level === 'LOW') say(b, 'Low risk, ayos! ✅', 3);
+    else say(b, rand(['Tapos! ✅', 'Done!', 'Next!', 'Ez 😎']), 2);
     if (t.next) setTimeout(() => assign(t.next.bot, t.next.text, t.next), 600);
   }
 
@@ -264,7 +272,9 @@
       if (!atDesk) { b.state = 'walking'; walkTo(b, seat.x, seat.y, 6); return; }
       b.state = 'working'; b.dir = 1;
       b.z = 6 + Math.abs(Math.sin(t * 7 + b.phase)) * 1.5;
-      b.task.progress += dt / b.task.secs;
+      // real (server) tasks wait at 92% until the server says they're done
+      const cap = b.task.external && !b.task.finished ? 0.92 : 1;
+      b.task.progress = Math.min(cap, b.task.progress + dt / b.task.secs);
       if (Math.random() < dt * 0.12 && !b.bubble) say(b, rand(LINES[b.team]));
       if (b.task.progress >= 1) finishTask(b);
       return;
@@ -626,11 +636,12 @@
 
   // ───────────────────────── UI: feed, stats, panel ─────────────────────────
   const feedEl = document.getElementById('feed');
-  function feed(b, text) {
+  function feed(b, text, url) {
     const li = document.createElement('li');
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     li.innerHTML = `<span class="avatar" style="--c:${b.color}"></span><div><b></b><time>${time}</time><br><span class="txt"></span></div>`;
     li.querySelector('b').textContent = b.name; li.querySelector('.txt').textContent = text;
+    if (url) { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.textContent = ' 📄 Open report'; li.querySelector('.txt').after(a); }
     feedEl.prepend(li);
     while (feedEl.children.length > 80) feedEl.lastChild.remove();
   }
@@ -662,7 +673,7 @@
       <h4>Queue (${b.queue.length})</h4>
       ${b.queue.length ? `<ul>${b.queue.slice(0, 5).map((q) => `<li>⏳ ${esc(q.text)}</li>`).join('')}</ul>` : '<div class="muted">Empty</div>'}
       <h4>Recent (${b.done} done)</h4>
-      ${b.log.length ? `<ul>${b.log.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : '<div class="muted">Nothing yet</div>'}
+      ${b.log.length ? `<ul>${b.log.map((l) => `<li>${esc(l.text)}${l.url ? ` <a href="${esc(l.url)}" target="_blank">📄 report</a>` : ''}</li>`).join('')}</ul>` : '<div class="muted">Nothing yet</div>'}
       ${b.id === 'mgr' ? '' : `<div class="actions">
         <button class="primary" data-act="task">＋ Give task</button>
         <button data-act="file">📎 Upload</button>
@@ -731,7 +742,10 @@
   const dropzone = document.getElementById('dropzone');
   const stage = document.getElementById('stage');
   const DOC = /\.(pdf|docx?|html?|txt|md|rtf)$/i, MEDIA = /\.(mp4|mov|m4v|webm|avi|mkv|png|jpe?g|gif|heic)$/i;
-  function routeFile(name, target) {
+  function routeFile(file, target) {
+    const name = file.name;
+    const toCompliance = !target || target.team === 'compliance' || target.id === 'mgr';
+    if (live && DOC.test(name) && toCompliance) return uploadReal(file);
     if (target && target.id !== 'mgr') {
       const step = [...PIPELINES.compliance, ...PIPELINES.content].find((s) => s.bot === target.id);
       return assign(target.id, `${step ? step.verb : 'Handle'}: ${name}`, { secs: 8, file: name });
@@ -749,10 +763,10 @@
   stage.addEventListener('drop', (e) => {
     e.preventDefault(); dragDepth = 0; dropzone.classList.remove('show');
     const r = canvas.getBoundingClientRect(); const target = botAt(e.clientX - r.left, e.clientY - r.top);
-    for (const f of e.dataTransfer.files) routeFile(f.name, target);
+    for (const f of e.dataTransfer.files) routeFile(f, target);
   });
   const picker = document.getElementById('filePicker'); let pickerTarget = null;
-  picker.addEventListener('change', () => { for (const f of picker.files) routeFile(f.name, pickerTarget); picker.value = ''; pickerTarget = null; });
+  picker.addEventListener('change', () => { for (const f of picker.files) routeFile(f, pickerTarget); picker.value = ''; pickerTarget = null; });
 
   // ───────────────────────── Demo mode ─────────────────────────
   const SAMPLE = {
@@ -768,32 +782,59 @@
     demoTimer = 9 + Math.random() * 12;
     const busy = bots.reduce((n, b) => n + b.queue.length + (b.task ? 1 : 0), 0);
     if (busy > 6) return;
-    const team = Math.random() < 0.5 ? 'compliance' : 'content';
+    const team = live || Math.random() < 0.5 ? 'content' : 'compliance'; // live: compliance is real work
     startPipeline(team, rand(SAMPLE[team]));
   }
 
-  // ───────────────────────── Live backend hook ─────────────────────────
-  // Optional: index.html?feed=/api/bots/events polls a JSON endpoint every 3s.
-  // Expected response: [{ "bot": "reg", "type": "task"|"done"|"log", "text": "...", "secs": 8 }]
-  const feedUrl = new URLSearchParams(location.search).get('feed');
-  if (feedUrl) {
-    demo = false; document.getElementById('demoToggle').checked = false;
-    setInterval(async () => {
-      try { const res = await fetch(feedUrl); (await res.json()).forEach(applyEvent); } catch (err) { /* backend offline */ }
-    }, 3000);
+  // ───────────────────────── Live backend (server.py) ─────────────────────────
+  // When the page is served by server.py, compliance bots do real work: uploads go to
+  // /api/upload and progress comes back from /api/bots/events.
+  let live = false, cursor = 0;
+  async function connectLive() {
+    try {
+      const h = await fetch('/api/health'); if (!h.ok) return;
+      cursor = (await (await fetch('/api/bots/events?after=0')).json()).last; // skip old history
+      live = true;
+      document.getElementById('liveBadge').classList.remove('hidden');
+      feed(botById.mgr, 'LIVE na tayo! Drop a PDF/DOCX para sa compliance bots ⚖️');
+      setInterval(pollLive, 1200);
+    } catch (err) { /* opened as a plain file: stay in demo mode */ }
   }
+  let polling = false;
+  async function pollLive() {
+    if (polling) return; polling = true;
+    try {
+      const r = await (await fetch(`/api/bots/events?after=${cursor}`)).json();
+      r.events.forEach(applyEvent); cursor = r.last;
+    } catch (err) { /* server restarting */ }
+    polling = false;
+  }
+  async function uploadReal(file) {
+    const fd = new FormData(); fd.append('files', file);
+    feed(botById.mgr, `uploading ${file.name}…`);
+    try {
+      const r = await (await fetch('/api/upload', { method: 'POST', body: fd })).json();
+      r.skipped.forEach((n) => feed(botById.mgr, `hindi tinanggap: ${n} (type o size)`));
+    } catch (err) { feed(botById.mgr, `upload failed: ${file.name}`); }
+  }
+  function findTask(b, id) { return [b.task, ...b.queue].find((t) => t && t.id === id); }
   function applyEvent(ev) {
     const b = botById[ev.bot]; if (!b) return;
-    if (ev.type === 'task') assign(b.id, ev.text, { secs: ev.secs || 8 });
-    else if (ev.type === 'done' && b.task) b.task.progress = 1;
-    else { feed(b, ev.text); say(b, ev.text.slice(0, 28)); }
+    if (ev.type === 'task') return assign(b.id, ev.text, { secs: ev.secs || 6, external: true, id: ev.task });
+    if (ev.type === 'done') {
+      const t = findTask(b, ev.task);
+      if (t) { t.finished = true; t.result = { text: ev.text, url: ev.url, ok: ev.ok, level: ev.level }; }
+      else feed(b, ev.text, ev.url);
+      return;
+    }
+    feed(b, ev.text); say(b, ev.text.slice(0, 28));
   }
 
   window.BotOffice = { bots: botById, assign, startPipeline, applyEvent, setDemo: (v) => { demo = v; document.getElementById('demoToggle').checked = v; } };
 
   resize(); fit();
   feed(botById.mgr, 'Good morning team! Office is open 🌅');
-  setTimeout(() => startPipeline('compliance', 'Data_Privacy_Act_RA10173.pdf'), 1200);
+  connectLive().then(() => { if (!live) startPipeline('compliance', 'Data_Privacy_Act_RA10173.pdf'); });
   setTimeout(() => startPipeline('content', 'vlog_day3.mp4'), 2600);
   requestAnimationFrame(frame);
 })();

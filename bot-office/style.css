@@ -6,6 +6,10 @@ html, body { margin: 0; height: 100%; background: #0d0b1a; color: #e9e6ff;
   background: #15122a; border-bottom: 1px solid #2a2550; }
 .brand { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .brand b { font-size: 17px; }
+.live { background: #e84a5f; color: #fff; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; animation: pulse 1.6s infinite; }
+.live.hidden { display: none; }
+@keyframes pulse { 50% { opacity: .55; } }
+#feed li a, .panel ul li a { color: #2ee6c9; text-decoration: none; font-weight: 600; }
 .brand .hint { color: #8d87b8; font-size: 12px; }
 .tabs { display: flex; gap: 4px; margin-left: auto; }
 .tabs button { background: #221d40; color: #cfc9ff; border: 1px solid #332c60; border-radius: 8px;
