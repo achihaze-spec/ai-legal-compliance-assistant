@@ -27,6 +27,7 @@
       <span title="Bots working"><i class="dot working"></i><b id="statWorking">0</b> working</span>
       <span title="Tasks waiting"><b id="statQueue">0</b> queued</span>
       <span title="Tasks finished"><b id="statDone">0</b> done</span>
+      <button class="kycbtn" id="kycBtn" title="KYC / KYB / sanctions / URL check">🛡️ KYC</button>
       <button class="affbtn" id="affBtn" title="Gumawa ng 5 affiliate videos mula sa product link">🛒 Affiliate</button>
       <button class="mute" id="setBtn" title="Settings">⚙️</button>
       <button class="mute" id="muteBtn" title="Sound">🔊</button>
@@ -46,6 +47,30 @@
         <button id="zoomFit" title="Fit">⤢</button>
       </div>
       <aside class="panel hidden" id="panel"></aside>
+      <div class="modal hidden" id="kycModal">
+        <form class="affform" id="kycForm">
+          <div class="head"><h2>🛡️ Compliance check</h2><button type="button" class="close" id="kycClose">×</button></div>
+          <div class="ktabs"><button type="button" data-k="person" class="on">👤 Tao (KYC)</button><button type="button" data-k="business">🏢 Negosyo (KYB / UBO)</button><button type="button" data-k="url">🌐 Website</button></div>
+          <input type="hidden" name="kind" value="person" />
+          <label class="k-person k-business k-url"><span class="lbl-name">Buong pangalan</span><input name="name" type="text" /></label>
+          <label class="k-person">Iba pang pangalan / alias <small>(comma)</small><input name="aliases" type="text" /></label>
+          <label class="k-person">Petsa ng kapanganakan<input name="dob" type="date" /></label>
+          <label class="k-person">Nationality<input name="nationality" type="text" placeholder="Philippines" /></label>
+          <label class="k-person">ID / passport number<input name="id_number" type="text" /></label>
+          <label class="k-person k-business">Address<input name="address" type="text" /></label>
+          <label class="k-person">MRZ <small>(2-3 linya sa ibaba ng passport/ID, opsyonal)</small><textarea name="mrz" rows="2" placeholder="P&lt;PHLDELA&lt;CRUZ&lt;&lt;JUAN..."></textarea></label>
+          <label class="k-business">Bansa ng rehistro<input name="country" type="text" placeholder="Philippines" /></label>
+          <label class="k-business">SEC / DTI registration no.<input name="reg_number" type="text" /></label>
+          <label class="k-business">Petsa ng incorporation<input name="inc_date" type="date" /></label>
+          <label class="k-business">Shareholders <small>(isa kada linya: Pangalan | % | sino ang pag-aari (blank = ang negosyo) | bansa)</small>
+            <textarea name="owners" rows="4" placeholder="Hold Co Ltd | 60 | | British Virgin Islands&#10;Juan Dela Cruz | 50 | Hold Co Ltd | Philippines&#10;Ana Reyes | 40"></textarea></label>
+          <label class="k-business">Directors / officers <small>(isa kada linya)</small><textarea name="directors" rows="2"></textarea></label>
+          <label class="k-business k-url">Website<input name="website" type="text" placeholder="https://..." /></label>
+          <p class="muted">Lahat ng resulta ay "suggested": ikaw/analyst ang magko-confirm. Sanctions true match = STOP, MLRO, walang tip-off.</p>
+          <button class="primary" type="submit">🔍 I-check</button>
+          <span class="msg" id="kycMsg"></span>
+        </form>
+      </div>
       <div class="modal hidden" id="setModal">
         <form class="affform" id="setForm">
           <div class="head"><h2>⚙️ Google (Veo) automation</h2><button type="button" class="close" id="setClose">×</button></div>
@@ -61,6 +86,12 @@
           <label>Budget kada produkto (USD, max)<input name="budget_per_job" type="number" step="1" /></label>
           <button class="primary" type="submit">💾 Save</button>
           <span class="msg" id="setMsg"></span>
+          <details class="modelbox" id="driveBox"><summary>📁 Google Drive folder (compliance reports)</summary>
+            <p class="muted">Kailangan ang Google Drive for desktop sa Mac. Bawat case: folder na "dd.mm.yy_Merchant name" na may .docx, .html at .json.</p>
+            <label>Folder path<input name="drive_folder" type="text" placeholder="/Users/ikaw/Library/CloudStorage/GoogleDrive-.../My Drive/KYB Reviews" /></label>
+            <button type="button" class="ghost" id="driveDetect">🔎 Hanapin ang Drive folders</button>
+            <div id="driveList" class="muted"></div>
+          </details>
           <details class="modelbox" id="phoneBox"><summary>📱 Phone access (Wi-Fi)</summary>
             <p class="muted">Buksan ang Bot Office sa phone mo habang naka-on ang Mac at pareho kayong nasa iisang Wi-Fi.</p>
             <label>PIN para sa phone <small>(4-8 numero)</small><input id="phonePin" type="password" inputmode="numeric" placeholder="hal. 2468" /></label>

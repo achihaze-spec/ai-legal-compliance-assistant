@@ -1051,6 +1051,39 @@
   document.getElementById('phoneOff').onclick = () => setPhone(false);
   document.getElementById('phoneBox').addEventListener('toggle', paintPhone);
 
+  // ───────────────────────── KYC / KYB / URL ─────────────────────────
+  const kycModal = document.getElementById('kycModal'), kycForm = document.getElementById('kycForm'), kycMsg = document.getElementById('kycMsg');
+  function kycTab(k) {
+    kycForm.elements.kind.value = k;
+    document.querySelectorAll('.ktabs button').forEach((b) => b.classList.toggle('on', b.dataset.k === k));
+    kycForm.querySelectorAll('label[class]').forEach((l) => { l.style.display = l.classList.contains('k-' + k) ? '' : 'none'; });
+    kycForm.querySelector('.lbl-name').textContent = { person: 'Buong pangalan', business: 'Pangalan ng negosyo (registered)', url: 'Pangalan ng negosyo (opsyonal)' }[k];
+  }
+  document.querySelectorAll('.ktabs button').forEach((b) => (b.onclick = () => kycTab(b.dataset.k)));
+  document.getElementById('kycBtn').onclick = () => { kycModal.classList.remove('hidden'); kycTab(kycForm.elements.kind.value); kycMsg.textContent = live ? '' : 'Buksan muna ang server.'; };
+  document.getElementById('kycClose').onclick = () => kycModal.classList.add('hidden');
+  kycModal.addEventListener('click', (e) => { if (e.target === kycModal) kycModal.classList.add('hidden'); });
+  kycForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!live) { kycMsg.textContent = 'Offline: buksan muna ang server.'; return; }
+    const btn = kycForm.querySelector('.primary'); btn.disabled = true; kycMsg.textContent = 'Sending…';
+    try {
+      const j = await (await fetch('/api/kyc', { method: 'POST', body: new FormData(kycForm) })).json();
+      if (!j.ok) throw new Error(j.error || j.detail || 'error');
+      Sound.play('upload'); feed(botById.mgr, 'Compliance check started 🛡️ (unang beses: dina-download ang sanctions lists, mga 1-2 minuto)');
+      kycForm.reset(); kycModal.classList.add('hidden'); kycMsg.textContent = '';
+    } catch (err) { kycMsg.textContent = 'Hindi nagsimula: ' + err.message; }
+    btn.disabled = false;
+  };
+  document.getElementById('driveDetect').onclick = async () => {
+    const j = await (await fetch('/api/drive/detect')).json();
+    const list = document.getElementById('driveList');
+    if (!j.folders.length) { list.textContent = 'Walang nakitang Google Drive for desktop. I-install sa drive.google.com/drive/download at mag-login.'; return; }
+    list.innerHTML = 'Piliin ang folder (tapos 💾 Save):';
+    j.folders.forEach((f) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = f.split('/').slice(-2).join(' / ');
+      b.title = f; b.onclick = () => { setForm.elements.drive_folder.value = f; list.textContent = '✔ ' + f + ' (pindutin ang 💾 Save)'; }; list.append(b); });
+  };
+
   const muteBtn = document.getElementById('muteBtn');
   const paintMute = () => { muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; muteBtn.title = Sound.muted ? 'Sound off (click to turn on)' : 'Sound on (click to mute)'; };
   muteBtn.addEventListener('click', () => { Sound.toggle(); paintMute(); });

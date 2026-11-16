@@ -31,6 +31,7 @@ DEFAULTS = {
     "resolution": "720p",
     "price_per_second": 0.15,       # USD, for the estimate only: check your Google pricing page
     "budget_per_job": 30.0,         # USD cap per product (all 5 videos)
+    "drive_folder": "",             # local Google Drive for desktop folder for case outputs (outputs.py)
 }
 
 

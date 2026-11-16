@@ -30,6 +30,8 @@ import auth
 import ai
 import veo
 import compliance
+import kyc
+import outputs
 import content
 
 HERE = Path(__file__).resolve().parent
@@ -174,6 +176,75 @@ async def upload(files: list[UploadFile] = File(...)):
             emit(bot="vid", type="task", task=f"{job_id}-vid", text=f"Edit to 9:16: {name}", secs=MIN_STEP_SECS["vid"])
         accepted.append({"job": job_id, "name": name, "team": "compliance" if is_doc else "content"})
     return {"accepted": accepted, "skipped": skipped}
+
+
+# ───────────────────────── KYC / KYB / URL checks ─────────────────────────
+KYC_DIR = HERE / "data" / "kyc"
+LIST_CACHE = HERE / "data" / "sanctions_lists"
+
+
+@app.post("/api/kyc")
+async def kyc_start(request: Request):
+    form = dict(await request.form())
+    kind = form.get("kind", "")
+    form = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
+    if kind not in ("person", "business", "url"):
+        raise HTTPException(400, "kind must be person, business or url")
+    if kind in ("person", "business") and not form.get("name", "").strip():
+        return {"ok": False, "error": "Kailangan ang pangalan."}
+    if kind == "url" and not form.get("website", "").strip():
+        return {"ok": False, "error": "Kailangan ang website / URL."}
+    jid = uuid.uuid4().hex[:10]
+    _jobs.put({"kind": "kyc", "id": jid, "type": kind, "form": form})
+    label = {"person": "KYC", "business": "KYB", "url": "URL check"}[kind]
+    emit(bot="doc", type="task", task=f"{jid}-intake", text=f"{label} intake: {form.get('name') or form.get('website')}", secs=3)
+    return {"ok": True, "job": jid}
+
+
+@app.get("/api/drive/detect")
+def drive_detect():
+    return {"folders": outputs.detect(), "current": veo.load().get("drive_folder", "")}
+
+
+def run_kyc_job(job: dict) -> None:
+    jid, t, f = job["id"], job["type"], job["form"]
+    work = KYC_DIR / jid
+    label = {"person": "KYC", "business": "KYB", "url": "URL"}[t]
+    merchant = (f.get("name") or f.get("website", "")).strip()
+    time.sleep(2)
+    emit(bot="doc", type="done", task=f"{jid}-intake", text=f"{label}: {merchant} ✔ intake")
+    emit(bot="reg", type="task", task=f"{jid}-screen",
+         text="Sanctions screening (OFAC · UN · EU · UK)" if t != "url" else "Website checks", secs=8)
+    if t == "person":
+        r = kyc.kyc_person(f, work, LIST_CACHE)
+    elif t == "business":
+        r = kyc.kyb_business(f, work, LIST_CACHE)
+    else:
+        import url_check
+        u = url_check.check(f["website"], f.get("name", ""))
+        r = {**u, "kind": "URL", "subject": {"name": merchant}, "outcome": u["rating"],
+             "why": "; ".join(x["msg"] for x in u["findings"] if x["level"] == "high")[:300] or "Tingnan ang findings sa ibaba."}
+    if t != "url":
+        hits = sum(len(h) for h in r["screen"]["results"].values())
+        failed = [l["source"] for l in r["screen"]["lists"] if l["status"] != "ok"]
+        emit(bot="reg", type="done", task=f"{jid}-screen",
+             text=f"{merchant}: {hits} potential hit(s)" + (f"; hindi na-screen: {', '.join(failed)}" if failed else ""))
+    else:
+        emit(bot="reg", type="done", task=f"{jid}-screen", text=f"{merchant}: {len(r['findings'])} finding(s)")
+    emit(bot="risk", type="task", task=f"{jid}-report", text=f"{label} report: {merchant}", secs=3)
+    page = kyc.render(r) if t != "url" else kyc.render_url(r)
+    (REPORTS / f"{jid}.html").write_text(page, encoding="utf-8")
+    saved = None
+    try:
+        saved = outputs.save_case(merchant, label, r, page)
+    except Exception as exc:
+        emit(bot="mgr", type="log", text=f"Hindi na-save sa Drive: {exc}")
+    level = {"STOP": "HIGH", "REJECT": "HIGH", "ESCALATE": "HIGH", "HIGH": "HIGH", "EDD": "MEDIUM", "PENDING": "MEDIUM",
+             "MEDIUM": "MEDIUM"}.get(r["outcome"], "LOW")
+    emit(bot="risk", type="done", task=f"{jid}-report", url=f"/reports/{jid}.html", level=level,
+         text=f"{merchant}: {r['outcome']}" + (f" · 📁 Drive: {saved.name}" if saved else " · (walang Drive folder sa ⚙️)"))
+    if r["outcome"] == "STOP":
+        emit(bot="mgr", type="log", text=f"🛑 {merchant}: posibleng sanctions TRUE MATCH. I-escalate sa MLRO. Walang tip-off.")
 
 
 # ───────────────────────── Affiliate Studio ─────────────────────────
@@ -574,6 +645,16 @@ def run_job(job: dict) -> None:
     (REPORTS / f"{jid}.html").write_text(compliance.render_report(name, text, pages, res, risk, level, review), encoding="utf-8")
     _paced("risk", t0)
     verdict = "summary ready" if level == "INFO" else f"{level} risk" + (" (Claude)" if review else f" ({risk}/100)")
+    try:
+        saved = outputs.save_case(Path(name).stem, "Compliance", {"file": name, "type": doc_type, "risk": risk, "outcome": level,
+                                  "why": f"{compliance.TYPE_LABEL[doc_type]} · keyword score {risk}/100",
+                                  "missing": [c["title"] for c in res.missing], "flags": [x["title"] for x in res.flags],
+                                  "obligations": res.obligations, "claude": review},
+                                  (REPORTS / f"{jid}.html").read_text(encoding="utf-8"), [(job["path"], name)])
+        if saved:
+            verdict += f" · 📁 {saved.name}"
+    except Exception as exc:
+        emit(bot="mgr", type="log", text=f"Hindi na-save sa Drive: {exc}")
     emit(bot="risk", type="done", task=f"{jid}-risk", level=level, url=f"/reports/{jid}.html", text=f"{name}: {verdict}")
 
 
@@ -630,7 +711,7 @@ def worker() -> None:
     while True:
         job = _jobs.get()
         try:
-            run_job(job)
+            (run_kyc_job if job.get("kind") == "kyc" else run_job)(job)
         except Exception as exc:  # never let one bad file kill the office
             emit(bot="mgr", type="log", text=f"May error sa {job['name']}: {exc}")
 
