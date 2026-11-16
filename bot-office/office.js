@@ -1029,6 +1029,28 @@
       + '<details><summary>Lahat ng models (para kay Claude)</summary><pre style="white-space:pre-wrap;font-size:11px">' + all.replace(/[<>&]/g, '') + '</pre></details>';
   };
 
+  // ───────────────────────── Phone access ─────────────────────────
+  const phoneInfo = document.getElementById('phoneInfo');
+  async function paintPhone() {
+    if (!live) return;
+    const st = await (await fetch('/api/phone')).json();
+    phoneInfo.innerHTML = st.enabled
+      ? `✅ Naka-on. Sa phone, i-scan ang QR o i-type: <br><b>${st.url}</b><img src="/api/phone/qr.png?t=${Date.now()}" alt="QR">` +
+        'Kung may tanong ang Mac na "Allow incoming connections", pindutin ang Allow.'
+      : (st.has_pin ? 'Naka-off.' : 'Wala pang PIN.');
+  }
+  async function setPhone(enabled) {
+    const pin = document.getElementById('phonePin').value.trim();
+    const r = await fetch('/api/phone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled, pin }) });
+    const j = await r.json().catch(() => ({ ok: false, error: 'Sa Mac lang puwedeng baguhin ito.' }));
+    if (!j.ok) { phoneInfo.textContent = '❌ ' + (j.error || j.detail || 'error'); return; }
+    document.getElementById('phonePin').value = '';
+    paintPhone();
+  }
+  document.getElementById('phoneOn').onclick = () => setPhone(true);
+  document.getElementById('phoneOff').onclick = () => setPhone(false);
+  document.getElementById('phoneBox').addEventListener('toggle', paintPhone);
+
   const muteBtn = document.getElementById('muteBtn');
   const paintMute = () => { muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; muteBtn.title = Sound.muted ? 'Sound off (click to turn on)' : 'Sound on (click to mute)'; };
   muteBtn.addEventListener('click', () => { Sound.toggle(); paintMute(); });

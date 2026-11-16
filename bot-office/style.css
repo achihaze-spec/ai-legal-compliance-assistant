@@ -1,5 +1,5 @@
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: #0d0b1a; color: #e9e6ff;
+html, body { margin: 0; height: 100%; } body { display: flex; flex-direction: column; } html, body { background: #0d0b1a; color: #e9e6ff;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
 
 .topbar { height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 14px;
@@ -22,7 +22,8 @@ html, body { margin: 0; height: 100%; background: #0d0b1a; color: #e9e6ff;
 .demo { cursor: pointer; user-select: none; }
 .mute { background: #221d40; border: 1px solid #332c60; border-radius: 8px; font-size: 15px; padding: 4px 8px; cursor: pointer; }
 
-.layout { display: flex; height: calc(100% - 52px); }
+.layout { display: flex; flex: 1; min-height: 0; }
+.topbar { flex: none; }
 .stage { position: relative; flex: 1; min-width: 0; }
 #office { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 #office.dragging { cursor: grabbing; }
@@ -108,7 +109,22 @@ span.avatar::before, span.avatar::after { content: ""; position: absolute; top: 
 .affform .modelbox { background: #0d0b1a; border: 1px solid #3a3270; border-radius: 10px; padding: 8px 10px; }
 .affform .modelbox summary { cursor: pointer; color: #c4a6ff; font-size: 13px; }
 .affform .modelbox label { margin-top: 8px; }
-.affform input[type=text] { background: #17132e; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
+.affform input[type=text], .affform input[type=password] { background: #17132e; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
 .affform { max-height: 92%; overflow-y: auto; }
 .affform select { background: #0d0b1a; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
 .affform input[type=number] { background: #0d0b1a; color: #fff; border: 1px solid #3a3270; border-radius: 8px; padding: 8px; font: inherit; }
+.affform .ghost { background: none; border: 1px solid #3a3270; color: #cfc9ff; border-radius: 10px; padding: 9px; cursor: pointer; }
+#phoneInfo img { width: 180px; background: #fff; border-radius: 10px; padding: 6px; display: block; margin: 8px auto; }
+#phoneInfo b { color: #ffd23d; font-size: 15px; }
+
+@media (max-width: 820px) {
+  .topbar { height: auto; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+  .brand { flex: 1 1 100%; }
+  .tabs { margin-left: 0; }
+  .tabs button { padding: 6px 8px; font-size: 12px; }
+  .stats { gap: 8px; font-size: 12px; margin-left: auto; }
+  .stats > span, .stats .demo { display: none; }
+  .affbtn { padding: 7px 10px; font-size: 14px; }
+  .mute { padding: 6px 9px; font-size: 16px; }
+  .stage { flex: 1 1 60%; min-height: 0; }
+}
