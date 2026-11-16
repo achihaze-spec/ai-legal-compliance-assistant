@@ -157,7 +157,22 @@ def _docx(r: dict, kind: str, merchant: str, out: Path) -> None:
         doc.add_paragraph(f"OFAC 50% Rule: {'BLOCKED' if o.get('subject_blocked') else 'not blocked'} "
                           f"({o.get('subject_aggregate_pct', 0):.0f}% held by sanctioned parties on the inputs given).")
         doc.add_paragraph("Percentages were declared in the KYB form: verify against the GIS / share register.")
-    if r.get("docs"):
+    di = r.get("documents")
+    if di:
+        doc.add_heading(f"Documents from Drive ({len(di['files'])} files, via {di['via']})", 1)
+        for n in di.get("notes", []):
+            doc.add_paragraph(n)
+        table(["Checklist item", "Status", "File(s)"], [[c["item"], c["status"] if c["status"] == "Received" else "Missing: RFI",
+                                                          ", ".join(c["files"])] for c in di["checklist"]])
+        for x in di.get("issues", []):
+            doc.add_paragraph(x, style="List Bullet")
+        for m in r.get("mrz_checks", []):
+            doc.add_paragraph(f"MRZ in {m['file']}: {(m['result'] or {}).get('overall') or (m['result'] or {}).get('error', '')}", style="List Bullet")
+        doc.add_heading("Document inventory", 2)
+        table(["File", "Detected as", "Drive ID", "Last modified", "Notes"],
+              [[x["name"], x["type"], x.get("drive_id") or "-", x.get("modified") or "-", x.get("note", "")] for x in di["files"]])
+        doc.add_paragraph("Review based on the file versions listed above (Drive ID and last-modified time).")
+    elif r.get("docs"):
         doc.add_heading("Document checklist", 1)
         for x in r["docs"]:
             doc.add_paragraph(f"☐ {x}")

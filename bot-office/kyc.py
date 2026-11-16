@@ -257,7 +257,7 @@ def parse_owners(text: str, business: str) -> tuple[list, list, list[str]]:
     return list(parties.values()), holdings, errors
 
 
-def kyb_business(d: dict, work: Path, cache: Path) -> dict:
+def kyb_business(d: dict, work: Path, cache: Path, docs_info: dict | None = None) -> dict:
     import url_check
     name = d["name"].strip()
     country = d.get("country", "")
@@ -301,13 +301,26 @@ def kyb_business(d: dict, work: Path, cache: Path) -> dict:
             url = {"error": str(exc)}
     if ubo and ubo.get("json", {}).get("ofac", {}).get("subject_blocked"):
         red.append(f"OFAC 50% Rule: BLOCKED ang negosyo ({ubo['json']['ofac']['subject_aggregate_pct']:.0f}% pag-aari ng sanctioned parties)")
+    mrz_checks = []
+    if docs_info:  # documents read from the Drive link
+        for m in docs_info.get("mrz", []):
+            res = mrz(m["lines"], "", "", "")
+            mrz_checks.append({"file": m["file"], "result": res})
+            if res and not res.get("error") and res.get("overall") not in ("Pass", None):
+                red.append(f"MRZ check digits sa {m['file']}: {res.get('overall')} (posibleng peke o tampered na ID)")
     incomplete = [lg["source"] for lg in scr["lists"] if lg["status"] != "ok"] + (["UBO (walang shareholders)"] if not holdings else [])
+    if docs_info:
+        missing = [c["item"] for c in docs_info["checklist"] if c["status"] != "Received"]
+        if missing:
+            incomplete.append(f"{len(missing)} missing document(s) (RFI)")
+        incomplete += [f"{x} (RFI: renewed copy)" for x in docs_info.get("issues", []) if x.startswith("Expired")]
     outcome, why = decide(scr, fatf_hits, red, incomplete)
     docs = ["SEC Certificate of Incorporation / DTI registration", "Articles and By-Laws", "Latest GIS (General Information Sheet)",
             "BIR Certificate of Registration (Form 2303)", "Mayor's / Business Permit", "Board resolution / Secretary's certificate (authorised signatory)",
             "Valid IDs ng directors at UBOs", "Proof of address ng negosyo", "Share register o stock and transfer book (para sa UBO)"]
     return {"kind": "KYB", "subject": subjects[0], "subjects": subjects, "screen": scr, "fatf": fatf_hits, "ubo": ubo,
             "owner_errors": owner_errors, "high_risk_jurisdiction": high, "url": url, "red": red, "docs": docs,
+            "documents": docs_info, "mrz_checks": mrz_checks,
             "searches": {s["name"]: searches(s["name"], s.get("country") or country, s["type"] == "entity") for s in subjects},
             "outcome": outcome, "why": why, "fatf_info": _fatf_lists()}
 
@@ -355,7 +368,26 @@ def render(r: dict) -> str:
             sec.append("<h2>Beneficial ownership</h2><p class='warn'>Walang shareholders na nailagay: Analyst to run (GIS / share register).</p>")
         if r["owner_errors"]:
             sec.append("<ul>" + "".join(f"<li class='warn'>{e(x)}</li>" for x in r["owner_errors"]) + "</ul>")
-        sec.append("<h2>Document checklist (KYB)</h2><ul>" + "".join(f"<li>☐ {e(x)}</li>" for x in r["docs"]) + "</ul>")
+        di = r.get("documents")
+        if di:
+            ck = "".join(f"<li>{'✅' if c['status'] == 'Received' else '❌'} {e(c['item'])}"
+                         f"{' <small>(' + e(', '.join(c['files'])) + ')</small>' if c['files'] else ' <b class=warn>Missing: RFI</b>'}</li>"
+                         for c in di["checklist"])
+            inv = "".join(f"<tr><td>{e(x['name'])}</td><td>{e(x['type'])}</td><td><small>{e(x.get('drive_id') or '-')}</small></td>"
+                          f"<td><small>{e(x.get('modified') or '-')}</small></td><td>{e(x.get('note') or ('%d page(s)' % x['pages'] if x['pages'] else ''))}</td></tr>"
+                          for x in di["files"])
+            iss = "".join(f"<li class='warn'>⚠️ {e(x)}</li>" for x in di.get("issues", []))
+            mz = "".join(f"<li>{e(m['file'])}: <b>{e(str((m['result'] or {}).get('overall') or (m['result'] or {}).get('error', '')))}</b></li>"
+                         for m in r.get("mrz_checks", []))
+            sec.append(f"<h2>📂 Documents from Drive ({len(di['files'])} file(s), via {e(di['via'])})</h2>"
+                       + "".join(f"<p class='muted'>{e(n)}</p>" for n in di.get("notes", []))
+                       + f"<p class='muted'>Details taken from the documents by {'AI (' + e(di['extracted_by']) + ')' if di['extracted_by'] != 'rules' else 'simple rules (walang AI sa ⚙️: punan ang kulang sa form)'}; typed fields win. Verify bago i-approve.</p>"
+                       + f"<h3>Checklist</h3><ul>{ck}</ul>" + (f"<h3>Issues</h3><ul>{iss}</ul>" if iss else "")
+                       + (f"<h3>MRZ found in documents</h3><ul>{mz}</ul><p class='muted'>Pass = consistent lang, hindi patunay na tunay ang ID.</p>" if mz else "")
+                       + f"<h3>Document inventory</h3><table><tr><th>File</th><th>Detected as</th><th>Drive ID</th><th>Last modified</th><th>Notes</th></tr>{inv}</table>"
+                       "<p class='muted'>Review based on the file versions listed above (Drive ID and last-modified time).</p>")
+        else:
+            sec.append("<h2>Document checklist (KYB)</h2><ul>" + "".join(f"<li>☐ {e(x)}</li>" for x in r["docs"]) + "</ul>")
     if r.get("url"):
         sec.append(render_url(r["url"], embedded=True))
     if r.get("searches"):
