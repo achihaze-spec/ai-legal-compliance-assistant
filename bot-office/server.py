@@ -22,9 +22,11 @@ from pathlib import Path
 import json
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
 import affiliate
+import auth
 import ai
 import veo
 import compliance
@@ -48,6 +50,77 @@ MAX_MEDIA_BYTES = 500 * 1024 * 1024
 MIN_STEP_SECS = {"doc": 4, "reg": 5, "risk": 4, "vid": 5, "cap": 4, "sched": 3, "post": 3}  # so you can actually watch them work
 
 app = FastAPI(title="Bot Office")
+PHONE = auth.Phone(HERE / "data")
+
+
+# ───────────────────────── phone access (PIN) ─────────────────────────
+@app.middleware("http")
+async def phone_guard(request: Request, call_next):
+    host = request.client.host if request.client else ""
+    if auth.is_local(host) or request.url.path in auth.PUBLIC:
+        return await call_next(request)
+    if not PHONE.enabled:
+        return HTMLResponse(auth.blocked_page(), status_code=403)
+    if PHONE.valid(request.cookies.get(auth.COOKIE)):
+        return await call_next(request)
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"ok": False, "error": "Login muna (PIN)."}, status_code=401)
+    return RedirectResponse("/login", status_code=303)
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_form():
+    return auth.login_page()
+
+
+@app.post("/login")
+def login(request: Request, pin: str = Form("")):
+    if not PHONE.enabled:
+        return HTMLResponse(auth.blocked_page(), status_code=403)
+    ok, err = PHONE.check_pin(pin, request.client.host if request.client else "")
+    if not ok:
+        return HTMLResponse(auth.login_page(err), status_code=401)
+    resp = RedirectResponse("/", status_code=303)
+    resp.set_cookie(auth.COOKIE, PHONE.make_token(), max_age=auth.MAX_AGE, httponly=True, samesite="lax")
+    return resp
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    return Response(auth.MANIFEST, media_type="application/manifest+json")
+
+
+@app.get("/icon.png")
+def icon():
+    return FileResponse(auth.icon_png(HERE / "data" / "icon.png"))
+
+
+def _local_only(request: Request):
+    if not auth.is_local(request.client.host if request.client else ""):
+        raise HTTPException(403, "Sa Mac lang puwedeng baguhin ito.")
+
+
+@app.get("/api/phone")
+def phone_status():
+    return PHONE.status()
+
+
+@app.post("/api/phone")
+async def phone_set(request: Request, body: dict):
+    _local_only(request)
+    pin = str(body.get("pin") or "").strip()
+    if pin and not re.fullmatch(r"\d{4,8}", pin):
+        return {"ok": False, "error": "4-8 numero ang PIN."}
+    try:
+        return {"ok": True, **PHONE.set(bool(body.get("enabled")), pin or None)}
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@app.get("/api/phone/qr.png")
+def phone_qr(request: Request):
+    _local_only(request)
+    return FileResponse(auth.qr_png(auth.phone_url(), HERE / "data" / "phone_qr.png"), headers={"Cache-Control": "no-store"})
 
 # ───────────────────────── event log the page polls ─────────────────────────
 _events: list[dict] = []
@@ -596,5 +669,7 @@ if __name__ == "__main__":
     if os.environ.get("BOT_OFFICE_OPEN") == "1":  # set by the start-* scripts
         import webbrowser
         threading.Timer(2.0, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
-    # localhost only by default: the API can spend money on your Google account
-    uvicorn.run(app, host=os.environ.get("BOT_OFFICE_HOST", "127.0.0.1"), port=PORT)
+    # Reachable on the Wi-Fi so a phone can connect, but every non-Mac request is blocked
+    # unless Phone access is on and the device logged in with the PIN (see phone_guard).
+    print(f"  Phone  : {'ON → ' + auth.phone_url() if PHONE.enabled else 'off (⚙️ Settings → Phone access)'}")
+    uvicorn.run(app, host=os.environ.get("BOT_OFFICE_HOST", "0.0.0.0"), port=PORT)

@@ -15,6 +15,14 @@ Open `bot-office/index.html` in a browser. No install and no build step.
 3. Sa unang beses, mag-i-install muna ito (1-3 minuto). Pagkatapos, kusang bubukas ang opisina sa browser.
 4. Huwag isara ang itim na window habang ginagamit. Isara ito para ihinto.
 
+## 📱 Gamitin sa phone (same Wi-Fi)
+1. Sa Mac: ⚙️ → **📱 Phone access** → maglagay ng PIN (4-8 numero) → **I-on**. May lalabas na QR code at address.
+2. Sa phone (parehong Wi-Fi): i-scan ang QR o i-type ang address, ilagay ang PIN. Para parang app: browser menu → **Add to Home screen**.
+3. Kung magtanong ang Mac ng "Allow incoming connections" para sa Python, pindutin ang **Allow**.
+
+The Mac never needs the PIN. Every other device is blocked unless phone access is on and it logged in with the PIN;
+only the Mac can change the PIN or turn it off. The PIN is stored as a salted hash; a new PIN logs every phone out.
+
 ## What you can do
 - **Click a bot** to open its panel (current task, queue, history, Give task / Upload / Break).
 - **Drag files onto the office** (or onto a specific bot):
@@ -110,7 +118,7 @@ On a results page: **🖼 Stills** makes a 9:16 first frame per AI shot from you
 photo is the product reference). Check them, 🔄 redo any, then **🎬 Animate**: Veo turns each still into a clip and the
 final video is edited automatically. A cost estimate is shown and a per-product budget cap blocks overspending.
 Posting stays manual (TikTok's API needs an audited app and can't add library music; Shopee has no posting API).
-The server listens on localhost only (`BOT_OFFICE_HOST` to change). `BOT_OFFICE_FAKE_GOOGLE=1` runs the flow without Google.
+The server listens on the network so a phone can connect, but only the Mac gets in without the PIN (`BOT_OFFICE_HOST=127.0.0.1` to lock it to the Mac). `BOT_OFFICE_FAKE_GOOGLE=1` runs the flow without Google.
 
 If the shop blocks the link, the product name is taken from the URL itself and your photos/notes are used.
 

@@ -6,6 +6,7 @@ python-docx
 beautifulsoup4
 pillow
 requests
+qrcode  # QR code for phone access
 imageio-ffmpeg  # bundled ffmpeg for Video Editor (no separate install needed)
 google-genai  # optional: Veo/Gemini image automation for Affiliate Studio
 anthropic  # optional: lets Claude review documents and write captions
