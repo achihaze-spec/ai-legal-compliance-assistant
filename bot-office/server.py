@@ -30,6 +30,8 @@ import auth
 import ai
 import veo
 import compliance
+import kyc
+import outputs
 import content
 
 HERE = Path(__file__).resolve().parent
@@ -176,6 +178,101 @@ async def upload(files: list[UploadFile] = File(...)):
     return {"accepted": accepted, "skipped": skipped}
 
 
+# ───────────────────────── KYC / KYB / URL checks ─────────────────────────
+KYC_DIR = HERE / "data" / "kyc"
+LIST_CACHE = HERE / "data" / "sanctions_lists"
+
+
+@app.post("/api/kyc")
+async def kyc_start(request: Request):
+    form = dict(await request.form())
+    kind = form.get("kind", "")
+    form = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
+    if kind not in ("person", "business", "url"):
+        raise HTTPException(400, "kind must be person, business or url")
+    if kind in ("person", "business") and not form.get("name", "").strip():
+        return {"ok": False, "error": "Kailangan ang pangalan."}
+    if kind == "url" and not form.get("website", "").strip():
+        return {"ok": False, "error": "Kailangan ang website / URL."}
+    jid = uuid.uuid4().hex[:10]
+    _jobs.put({"kind": "kyc", "id": jid, "type": kind, "form": form})
+    label = {"person": "KYC", "business": "KYB", "url": "URL check"}[kind]
+    emit(bot="doc", type="task", task=f"{jid}-intake", text=f"{label} intake: {form.get('name') or form.get('website')}", secs=3)
+    return {"ok": True, "job": jid}
+
+
+@app.post("/api/ai/test")
+def ai_test():
+    """Lists the models the chosen AI provider can use (Ollama), or says whether Claude is configured."""
+    import requests
+    st = veo.load()
+    p = st.get("ai_provider", "claude")
+    try:
+        if p == "claude":
+            return {"ok": ai.available(), "provider": p,
+                    "message": "Claude ready" if ai.available() else "No Claude key (ANTHROPIC_API_KEY or ant auth login)"}
+        if p == "ollama_local":
+            r = requests.get((st.get("ollama_url") or "http://localhost:11434").rstrip("/") + "/api/tags", timeout=5,
+                             proxies={"http": None, "https": None})
+        else:
+            if not st.get("ollama_api_key"):
+                return {"ok": False, "provider": p, "message": "Add your Ollama API key (ollama.com/settings/keys)"}
+            r = requests.get("https://ollama.com/api/tags", timeout=15, headers={"Authorization": f"Bearer {st['ollama_api_key']}"})
+        r.raise_for_status()
+        models = [m.get("name") or m.get("model") for m in r.json().get("models", [])]
+        return {"ok": True, "provider": p, "models": models,
+                "message": f"Connected: {len(models)} model(s)" + ("" if models else ". Run: ollama pull gemma4:e2b")}
+    except Exception as exc:
+        hint = " Is Ollama running? Open the Ollama app or run: ollama serve" if p == "ollama_local" else ""
+        return {"ok": False, "provider": p, "message": f"{type(exc).__name__}: {str(exc)[:160]}.{hint}"}
+
+
+@app.get("/api/drive/detect")
+def drive_detect():
+    return {"folders": outputs.detect(), "current": veo.load().get("drive_folder", "")}
+
+
+def run_kyc_job(job: dict) -> None:
+    jid, t, f = job["id"], job["type"], job["form"]
+    work = KYC_DIR / jid
+    label = {"person": "KYC", "business": "KYB", "url": "URL"}[t]
+    merchant = (f.get("name") or f.get("website", "")).strip()
+    time.sleep(2)
+    emit(bot="doc", type="done", task=f"{jid}-intake", text=f"{label}: {merchant} ✔ intake")
+    emit(bot="reg", type="task", task=f"{jid}-screen",
+         text="Sanctions screening (OFAC · UN · EU · UK)" if t != "url" else "Website checks", secs=8)
+    if t == "person":
+        r = kyc.kyc_person(f, work, LIST_CACHE)
+    elif t == "business":
+        r = kyc.kyb_business(f, work, LIST_CACHE)
+    else:
+        import url_check
+        u = url_check.check(f["website"], f.get("name", ""))
+        r = {**u, "kind": "URL", "subject": {"name": merchant}, "outcome": u["rating"],
+             "why": "; ".join(x["msg"] for x in u["findings"] if x["level"] == "high")[:300] or "Tingnan ang findings sa ibaba."}
+    if t != "url":
+        hits = sum(len(h) for h in r["screen"]["results"].values())
+        failed = [l["source"] for l in r["screen"]["lists"] if l["status"] != "ok"]
+        emit(bot="reg", type="done", task=f"{jid}-screen",
+             text=f"{merchant}: {hits} potential hit(s)" + (f"; not screened: {', '.join(failed)}" if failed else ""))
+    else:
+        emit(bot="reg", type="done", task=f"{jid}-screen", text=f"{merchant}: {len(r['findings'])} finding(s)")
+    emit(bot="risk", type="task", task=f"{jid}-report", text=f"{label} report: {merchant}", secs=3)
+    page = kyc.render(r) if t != "url" else kyc.render_url(r)
+    (REPORTS / f"{jid}.html").write_text(page, encoding="utf-8")
+    saved = None
+    try:
+        saved = outputs.save_case(merchant, label, r, page)
+    except Exception as exc:
+        emit(bot="mgr", type="log", text=f"Couldn't save to Drive: {exc}")
+    level = {"STOP": "HIGH", "REJECT": "HIGH", "ESCALATE": "HIGH", "HIGH": "HIGH", "EDD": "MEDIUM", "PENDING": "MEDIUM",
+             "MEDIUM": "MEDIUM"}.get(r["outcome"], "LOW")
+    emit(bot="risk", type="done", task=f"{jid}-report", url=f"/reports/{jid}.html", level=level,
+         text=f"{merchant}: {r['outcome']}" + (f" · 📁 Drive: {saved.name}" if saved else " · (no Drive folder set in ⚙️)"))
+    if r["outcome"] == "STOP":
+        emit(bot="mgr", type="log", text=f"🛑 {merchant}: possible sanctions TRUE MATCH. Escalate to the MLRO now. No tip-off.")
+
+
 # ───────────────────────── Affiliate Studio ─────────────────────────
 async def _save_uploads(files, folder: Path, allowed: set, prefix: str) -> list[Path]:
     saved = []
@@ -266,7 +363,7 @@ def run_affiliate_plan(req: dict) -> None:
         for v in videos:
             affiliate.model_visuals(v, req["model"], prod["category"] == "fashion")
     _paced("cap", t0)
-    emit(bot="cap", type="done", task=f"{jid}-cap", text=f"5 scripts para sa {prod['name'] or 'product'} (by {author})")
+    emit(bot="cap", type="done", task=f"{jid}-cap", text=f"5 scripts for {prod['name'] or 'the product'} (by {author})")
 
     # Reg Checker: platform policy
     emit(bot="reg", type="task", task=f"{jid}-policy", text="Platform policy check: 5 affiliate videos", secs=MIN_STEP_SECS["reg"])
@@ -333,7 +430,7 @@ def run_affiliate_final(req: dict) -> None:
     _save_job(job)
     _paced("vid", t0)
     emit(bot="vid", type="done", task=f"{jid}-final{n}", url=f"/reports/{jid}.html",
-         text=f"Affiliate video {n}: final na ({render['seconds']}s) 🎬")
+         text=f"Affiliate video {n} is final ({render['seconds']}s) 🎬")
 
 
 # ───────────────────────── Auto (Google Veo) ─────────────────────────
@@ -415,7 +512,7 @@ def run_auto_stills(req: dict) -> None:
     job = json.loads((AFFILIATE / jid / "job.json").read_text(encoding="utf-8"))
     refs = _refs(job)
     targets = [req["n"]] if req["n"] else list(range(1, 6))
-    emit(bot="vid", type="task", task=f"{jid}-stills", text="Gumagawa ng stills (Gemini image)", secs=8)
+    emit(bot="vid", type="task", task=f"{jid}-stills", text="Making stills (Gemini image)", secs=8)
     made, errors = 0, []
     for k in targets:
         v = job["videos"][k - 1]
@@ -434,14 +531,14 @@ def run_auto_stills(req: dict) -> None:
     job["auto_error"] = "; ".join(errors)
     _save_job(job)
     emit(bot="vid", type="done", task=f"{jid}-stills", url=f"/reports/{jid}.html", ok=not errors or made > 0,
-         text=f"{made} stills ready, i-check bago i-animate" + (f" ({len(errors)} error)" if errors else ""))
+         text=f"{made} stills ready, check them before animating" + (f" ({len(errors)} error)" if errors else ""))
 
 
 def run_auto_animate(req: dict) -> None:
     jid = req["id"]
     job = json.loads((AFFILIATE / jid / "job.json").read_text(encoding="utf-8"))
     s = veo.load()
-    emit(bot="vid", type="task", task=f"{jid}-veo", text="Veo: ginagawa ang video clips", secs=30)
+    emit(bot="vid", type="task", task=f"{jid}-veo", text="Veo: making the video clips", secs=30)
     done, errors = 0, []
     for k in req["targets"]:
         v = job["videos"][k - 1]
@@ -532,14 +629,14 @@ def run_job(job: dict) -> None:
         text, pages = compliance.extract_text(job["path"])
     except Exception as exc:  # unreadable / encrypted file
         _paced("doc", t0)
-        emit(bot="doc", type="done", task=f"{jid}-doc", ok=False, text=f"Hindi mabasa ang {name}: {exc}")
+        emit(bot="doc", type="done", task=f"{jid}-doc", ok=False, text=f"Couldn't read {name}: {exc}")
         return
     doc_type = compliance.classify(text)
     words = len(text.split())
     _paced("doc", t0)
     if words < 20:
         emit(bot="doc", type="done", task=f"{jid}-doc", ok=False,
-             text=f"{name}: halos walang text (scanned PDF?). Kailangan ng OCR.")
+             text=f"{name}: barely any text (scanned PDF?). Needs OCR.")
         return
     emit(bot="doc", type="done", task=f"{jid}-doc",
          text=f"{name}: {pages} page(s), {words:,} words — {compliance.TYPE_LABEL[doc_type]}")
@@ -574,6 +671,16 @@ def run_job(job: dict) -> None:
     (REPORTS / f"{jid}.html").write_text(compliance.render_report(name, text, pages, res, risk, level, review), encoding="utf-8")
     _paced("risk", t0)
     verdict = "summary ready" if level == "INFO" else f"{level} risk" + (" (Claude)" if review else f" ({risk}/100)")
+    try:
+        saved = outputs.save_case(Path(name).stem, "Compliance", {"file": name, "type": doc_type, "risk": risk, "outcome": level,
+                                  "why": f"{compliance.TYPE_LABEL[doc_type]} · keyword score {risk}/100",
+                                  "missing": [c["title"] for c in res.missing], "flags": [x["title"] for x in res.flags],
+                                  "obligations": res.obligations, "claude": review},
+                                  (REPORTS / f"{jid}.html").read_text(encoding="utf-8"), [(job["path"], name)])
+        if saved:
+            verdict += f" · 📁 {saved.name}"
+    except Exception as exc:
+        emit(bot="mgr", type="log", text=f"Couldn't save to Drive: {exc}")
     emit(bot="risk", type="done", task=f"{jid}-risk", level=level, url=f"/reports/{jid}.html", text=f"{name}: {verdict}")
 
 
@@ -587,7 +694,7 @@ def run_content_job(job: dict) -> None:
         media = content.make_vertical(job["path"], out)
     except Exception as exc:
         _paced("vid", t0)
-        emit(bot="vid", type="done", task=f"{jid}-vid", ok=False, text=f"Hindi ma-edit ang {name}: {exc}")
+        emit(bot="vid", type="done", task=f"{jid}-vid", ok=False, text=f"Couldn't edit {name}: {exc}")
         return
     _paced("vid", t0)
     secs = f", {media['seconds']:.0f}s" if media["seconds"] else ""
@@ -623,16 +730,16 @@ def content_worker() -> None:
         try:
             run_content_job(job)
         except Exception as exc:
-            emit(bot="mgr", type="log", text=f"May error sa {job['name']}: {exc}")
+            emit(bot="mgr", type="log", text=f"Error on {job['name']}: {exc}")
 
 
 def worker() -> None:
     while True:
         job = _jobs.get()
         try:
-            run_job(job)
+            (run_kyc_job if job.get("kind") == "kyc" else run_job)(job)
         except Exception as exc:  # never let one bad file kill the office
-            emit(bot="mgr", type="log", text=f"May error sa {job['name']}: {exc}")
+            emit(bot="mgr", type="log", text=f"Error on {job['name']}: {exc}")
 
 
 threading.Thread(target=worker, daemon=True).start()
@@ -663,7 +770,7 @@ if __name__ == "__main__":
     print("Bot Office setup check:")
     print(f"  ffmpeg : {content.FFMPEG or 'MISSING'} ({content.FFMPEG_SOURCE})"
           + ("" if content.FFMPEG else "  -> run: pip install imageio-ffmpeg"))
-    print(f"  Claude : {'on' if ai.available() else 'off (set ANTHROPIC_API_KEY to enable)'}")
+    print(f"  AI     : {ai.provider()} ({'ready' if ai.available() else 'not set up: ⚙️ Settings'})")
     print(f"  Google : {'configured' if veo.configured() else 'not set (⚙️ Settings in the office)'}")
     print(f"  Open http://localhost:{PORT}")
     if os.environ.get("BOT_OFFICE_OPEN") == "1":  # set by the start-* scripts

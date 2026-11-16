@@ -125,7 +125,7 @@ button{{background:#ff6fae;color:#1a0d18;border:0;border-radius:10px;padding:12p
 
 def login_page(error: str = "") -> str:
     err = f'<p class="err">{html.escape(error)}</p>' if error else ""
-    return page("Bot Office: PIN", f"""<form method="post" action="/login"><img src="/icon.png" alt=""><h1>24/7 Bots</h1>{err}
+    return page("Bot Office: PIN", f"""<form method="post" action="/login"><img src="/icon.png" alt=""><h1>Evercrestcorp Compliance</h1>{err}
 <input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" placeholder="PIN" autocomplete="current-password" autofocus>
 <button>Pasok 🔓</button></form>""")
 
@@ -135,7 +135,7 @@ def blocked_page() -> str:
 <p>Sa Mac: buksan ang Bot Office → ⚙️ → Phone access → maglagay ng PIN at i-on.</p></div>""")
 
 
-MANIFEST = """{"name": "24/7 Bots", "short_name": "Bot Office", "start_url": "/", "display": "standalone",
+MANIFEST = """{"name": "Evercrestcorp Compliance", "short_name": "Evercrest", "start_url": "/", "display": "standalone",
  "background_color": "#0d0b1a", "theme_color": "#15122a", "icons": [{"src": "/icon.png", "sizes": "512x512", "type": "image/png"}]}"""
 
 

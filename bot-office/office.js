@@ -51,11 +51,51 @@
     let ac = null, master = null;
     let muted = localStorage.getItem('botOfficeMuted') === '1';
     const lastPlayed = {};
+    let musicOn = localStorage.getItem('botOfficeMusic') === '1', musicGain = null, musicTimer = null, nextBeat = 0, beat = 0;
     function unlock() {
       if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
       ac = new AC(); master = ac.createGain(); master.gain.value = 0.35; master.connect(ac.destination);
+      musicGain = ac.createGain(); musicGain.gain.value = muted ? 0 : 0.09; musicGain.connect(ac.destination);
+      if (musicOn) startMusic();
     }
+    // Chill lo-fi: Fmaj7 · Em7 · Dm7 · Cmaj7 at 76 BPM, soft keys + bass + brushed beat.
+    const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]];
+    const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+    function tone(freq, t0, len, type, vol, filt) {
+      const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+      o.type = type; o.frequency.value = freq; f.type = 'lowpass'; f.frequency.value = filt;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+      o.connect(f); f.connect(g); g.connect(musicGain); o.start(t0); o.stop(t0 + len + 0.1);
+    }
+    function noise(t0, len, vol, hp) {
+      const buf = ac.createBuffer(1, ac.sampleRate * len, ac.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = buf; f.type = 'highpass'; f.frequency.value = hp; g.gain.value = vol;
+      src.connect(f); f.connect(g); g.connect(musicGain); src.start(t0);
+    }
+    function scheduleBeat(t0) {
+      const bar = Math.floor(beat / 4) % 4, pos = beat % 4, spb = 60 / 76;
+      if (pos === 0) {
+        CHORDS[bar].forEach((m, i) => tone(hz(m + 12), t0 + i * 0.03, spb * 3.6, 'triangle', 0.11, 1800));  // keys, lightly strummed
+        tone(hz(CHORDS[bar][0] - 12), t0, spb * 1.8, 'sine', 0.35, 400);                                       // bass
+      }
+      if (pos === 2) tone(hz(CHORDS[bar][0] - 12 + 7), t0, spb * 1.6, 'sine', 0.25, 400);
+      if (pos === 0 || pos === 2) { const o = ac.createOscillator(), g = ac.createGain();                     // soft kick
+        o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(45, t0 + 0.18);
+        g.gain.setValueAtTime(0.5, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25); o.connect(g); g.connect(musicGain); o.start(t0); o.stop(t0 + 0.3); }
+      if (pos === 1 || pos === 3) noise(t0, 0.18, 0.12, 1500);                                              // brush snare
+      noise(t0 + spb / 2, 0.05, 0.05, 7000);                                                                 // hat on the off-beat
+      if (pos === 3 && Math.random() < 0.4) tone(hz(CHORDS[bar][1 + Math.floor(Math.random() * 3)] + 24), t0 + spb / 2, 0.5, 'sine', 0.06, 3000); // sparkle
+      beat++;
+    }
+    function startMusic() {
+      if (!ac || musicTimer) return;
+      nextBeat = ac.currentTime + 0.1;
+      musicTimer = setInterval(() => { while (nextBeat < ac.currentTime + 0.4) { scheduleBeat(nextBeat); nextBeat += 60 / 76; } }, 100);
+    }
+    function stopMusic() { clearInterval(musicTimer); musicTimer = null; }
     ['pointerdown', 'keydown', 'drop'].forEach((ev) => window.addEventListener(ev, unlock, { capture: true }));
     // one soft note: frequency (Hz), start offset (s), length (s), waveform, loudness
     function note(freq, at, len, type = 'sine', vol = 0.6, slideTo = null) {
@@ -83,7 +123,11 @@
         lastPlayed[name] = t; SFX[name]();
       },
       get muted() { return muted; },
-      toggle() { muted = !muted; localStorage.setItem('botOfficeMuted', muted ? '1' : '0'); unlock(); if (!muted) SFX.blip(); return muted; },
+      toggle() { muted = !muted; localStorage.setItem('botOfficeMuted', muted ? '1' : '0'); unlock();
+        if (musicGain) musicGain.gain.value = muted ? 0 : 0.09; if (!muted) SFX.blip(); return muted; },
+      get music() { return musicOn; },
+      toggleMusic() { musicOn = !musicOn; localStorage.setItem('botOfficeMusic', musicOn ? '1' : '0'); unlock();
+        if (musicOn) startMusic(); else stopMusic(); return musicOn; },
     };
   })();
 
@@ -123,6 +167,8 @@
   // Lounge
   add({ type: 'rug', x: 2.6, y: 9.6, w: 4.8, d: 4.8, block: false });
   add({ type: 'bar', x: 0.05, y: 9.05, w: 0.85, d: 2.9, h: 30 });
+  add({ type: 'fridge', x: 0.08, y: 12.08, w: 0.84, d: 0.84, h: 64 });
+  add({ type: 'snacks', x: 0.1, y: 13.1, w: 0.8, d: 0.8, h: 30 });
   add({ type: 'sofa', x: 3.1, y: 10.1, w: 2.8, d: 0.85, h: 14, col: '#c8692e' });
   add({ type: 'sofa', x: 3.1, y: 13.05, w: 2.8, d: 0.85, h: 14, col: '#c8692e', flip: true });
   add({ type: 'coffeeTable', x: 3.9, y: 11.5, w: 1.3, d: 0.9, h: 10 });
@@ -168,6 +214,7 @@
     { x: 3.7, y: 13.5, z: 12, n: 'sofa' }, { x: 5.2, y: 13.5, z: 12, n: 'sofa' },
     { x: 8.35, y: 14.35, z: 8, n: 'beanbag' }, { x: 9.65, y: 13.45, z: 8, n: 'beanbag' }, { x: 7.85, y: 12.35, z: 8, n: 'beanbag' },
     { x: 1.5, y: 10.5, z: 0, n: 'coffee' }, { x: 1.5, y: 9.5, z: 0, n: 'coffee' },
+    { x: 1.5, y: 12.5, z: 0, n: 'fridge' }, { x: 1.5, y: 13.5, z: 0, n: 'snacks' },
     { x: 20.55, y: 10.3, z: 0, n: 'arcade' }, { x: 21.65, y: 10.3, z: 0, n: 'arcade' },
     { x: 14.0, y: 14.4, z: 0, n: 'billiards' }, { x: 17.4, y: 12.6, z: 0, n: 'billiards' },
     { x: 22.4, y: 11.5, z: 0, n: 'vending' }, { x: 18.5, y: 14.5, z: 0, n: 'wander' }, { x: 11.5, y: 14.2, z: 0, n: 'wander' },
@@ -214,12 +261,27 @@
     { id: 'mgr', name: 'Bot Manager', role: 'Keeps everyone on track', team: 'manager', color: '#e8e8f0' },
   ];
   const LINES = {
-    idle: ['Kape muna ☕', 'Micro-chips!', 'Break time!', 'Sino next?', 'G lang 😎', 'Chill muna', 'Beep boop', 'Snack?', '✨'],
-    compliance: ['Sec. 12... hmm', 'Checking DPA…', 'May risk dito ⚠️', 'Reading p.4', 'Citing Art. 7', 'Compliant ✅', 'Need clause ref'],
-    content: ['Cutting…', 'Hook muna!', 'Rendering…', '#fyp', 'Caption on point', 'Color grade 🎨', '3…2…1 post!'],
-    chat: [['Uy, tapos ka na?', 'Oo, ikaw?'], ['Billiards?', 'Tara!'], ['May bagong PDF', 'Ako na bahala'],
-      ['Viral \'to promise', 'Sana all 😂'], ['Kain tayo?', 'Mamaya pa'], ['Nice edit!', 'Salamat 🥹']],
+    idle: ['Coffee first ☕', 'Micro-chips! 🍟', 'Byte-sized break', 'Beep boop 🤖', 'Brb, defragging 😴', '404: motivation not found',
+      'Running on caffeine.js', 'I put the fun in function', 'Airplane mode ✈️', 'Snack o\'clock?', 'Compiling thoughts…', 'Who\'s next?'],
+    compliance: ['Reading the fine print 🔍', 'Sec. 12… hmm', 'Checking the DPA…', 'Red flag spotted 🚩', 'Citing Art. 7',
+      'Compliant ✅', 'Who still writes "herein"?', 'Screening names…', 'Footnote of doom 😱', 'Need a clause ref'],
+    content: ['Hook first!', 'Rendering…', 'Cut! That\'s a wrap 🎬', 'Caption on point', 'Color grade 🎨', '3… 2… 1… post!',
+      'Make it pop ✨', 'Trending? Obviously.', '#fyp energy'],
+    chat: [['You done yet?', 'Almost! You?'], ['Billiards?', 'Rack \'em up! 🎱'], ['New PDF just dropped', 'I got this'],
+      ['This one\'s going viral', 'Said every video ever 😂'], ['Lunch?', 'Only if it\'s chips 🍟'], ['Nice edit!', 'Thanks! 🥹'],
+      ['Did you read the T&Cs?', 'Nobody reads the T&Cs.'], ['Coffee?', 'Java, please ☕']],
+    eat: ['Nom nom 🍟', 'Snack attack!', 'Fridge raid! 🧊', 'A byte of pizza 🍕', 'Donut disturb 🍩', 'Juice break 🧃', 'Chips = micro-chips'],
+    play: ['High score! 🎮', 'One more round…', 'Nice shot! 🎱', 'GG!', 'Combo x10!', 'Your turn!', 'Insert coin 🪙'],
+    relax: ['Comfy 😌', 'Scrolling memes 📱', 'Power nap… 😴', 'Ahh, sofa life'],
+    jokes: [['Why was the contract sad?', 'It lost its appeal 😢'], ['Lawyer\'s favorite drink?', 'Subpoena colada 🍹'],
+      ['Why don\'t bots panic?', 'Nerves of steel 🤖'], ['Why did the UBO hide?', 'Too many layers 🧅'],
+      ['Why did the video go viral?', 'It had a great hook 🎣'], ['How do robots flirt?', 'You had me at hello world'],
+      ['Why was the PDF stressed?', 'Too many unresolved issues'], ['What do bots eat?', 'Micro-chips, obviously 🍟'],
+      ['Why is the risk report so calm?', 'It manages expectations'], ['Knock knock', 'Who\'s there? …Compliance. Sign here.']],
   };
+
+  const ACTIVITY = { coffee: 'eat', fridge: 'eat', snacks: 'eat', vending: 'eat', arcade: 'play', billiards: 'play', sofa: 'relax', beanbag: 'relax' };
+  const FOODS = { coffee: ['☕', '🧋'], fridge: ['🧃', '🍕', '🥪', '🍦', '🧁'], snacks: ['🍟', '🍩', '🍪', '🥨', '🍿'], vending: ['🥤', '🍫', '🍬'] };
 
   const bots = BOT_DEFS.map((d, i) => {
     const s = desks[d.id].seat;
@@ -266,7 +328,7 @@
       external: !!opts.external, id: opts.id || null, finished: false, result: null };
     b.queue.push(t);
     feed(b, `got a task: ${text}`);
-    if (!b.task && b.state !== 'break') say(b, 'Ako na! 🙋', 2);
+    if (!b.task && b.state !== 'break') say(b, rand(['On it! 🙋', 'Leave it to me!', 'Challenge accepted']), 2);
     Sound.play('task');
     return t;
   }
@@ -284,11 +346,11 @@
     b.log.length = Math.min(b.log.length, 8);
     feed(b, r.text ? r.text : `done — ${t.text}`, r.url);
     Sound.play(failed ? 'error' : r.level === 'HIGH' ? 'high' : 'done');
-    if (failed) say(b, 'Hala, may problema 😵', 3);
+    if (failed) say(b, 'Uh oh, problem 😵', 3);
     else if (r.level === 'HIGH') say(b, 'HIGH risk! 🚩', 3.5);
     else if (r.level === 'MEDIUM') say(b, 'Medium risk ⚠️', 3);
-    else if (r.level === 'LOW') say(b, 'Low risk, ayos! ✅', 3);
-    else say(b, rand(['Tapos! ✅', 'Done!', 'Next!', 'Ez 😎']), 2);
+    else if (r.level === 'LOW') say(b, 'Low risk, nice! ✅', 3);
+    else say(b, rand(['Done! ✅', 'Next!', 'Easy peasy 😎', 'Nailed it!']), 2);
     if (t.next) setTimeout(() => assign(t.next.bot, t.next.text, t.next), 600);
   }
 
@@ -329,13 +391,19 @@
     // idle life: hang out in the lounge, sometimes chat
     if (b.state === 'working' || b.state === 'walking') b.state = 'idle';
     b.z = (b.spot ? b.spot.z : 0) + Math.sin(t * 2.2 + b.phase) * 1.2;
+    if (b.spot && !b.path.length && b.activity !== b.spot) {  // arrived: eat, play or relax
+      b.activity = b.spot;
+      b.actKind = ACTIVITY[b.spot.n] || 'relax';
+      b.food = rand(FOODS[b.spot.n] || ['🍪']);
+      if (Math.random() < 0.8) setTimeout(() => !b.task && b.activity && say(b, rand(LINES[b.actKind])), 600);
+    }
     b.idleTimer -= dt;
     if (b.idleTimer <= 0) {
       b.idleTimer = 6 + Math.random() * 9;
       const r = Math.random();
       const others = bots.filter((o) => o !== b && o.id !== 'mgr' && !o.task && !o.path.length);
       if (r < 0.25 && others.length) {
-        const o = rand(others), [a, c] = rand(LINES.chat);
+        const o = rand(others), [a, c] = rand(Math.random() < 0.5 ? LINES.jokes : LINES.chat);
         b.spot = null;
         walkTo(b, Math.min(W - 0.5, Math.max(0.5, o.x + (o.x < 22 ? 0.9 : -0.9))), o.y);
         setTimeout(() => say(b, a), 1800); setTimeout(() => say(o, c), 3600);
@@ -364,11 +432,11 @@
       if (busy.length) {
         const v = rand(busy);
         walkTo(b, v.x + (v.x > 1.5 ? -0.9 : 0.9), v.y);
-        setTimeout(() => say(b, rand(['Kamusta? 👀', 'Good job!', 'Keep going 💪'])), 3500);
+        setTimeout(() => say(b, rand(['How\'s it going? 👀', 'Great job!', 'Keep going 💪'])), 3500);
         setTimeout(() => walkTo(b, desks.mgr.seat.x, desks.mgr.seat.y, 6), 8000);
       }
     } else if (!atDesk && !b.path.length) walkTo(b, desks.mgr.seat.x, desks.mgr.seat.y, 6);
-    else say(b, rand(['All ok 👍', 'Status check ✔', 'Walang tulog!']));
+    else say(b, rand(['All good 👍', 'Status check ✔', 'Bots never sleep!']));
   }
 
   // ───────────────────────── Drawing: furniture ─────────────────────────
@@ -495,6 +563,21 @@
         const btn = iso(x + w / 2, y + d + .1, h - 29); ctx.beginPath(); ctx.arc(btn.x, btn.y, 2.5, 0, 7); ctx.fillStyle = '#ffd23d'; ctx.fill();
         break;
       }
+      case 'fridge': {
+        box(x, y, w, d, h, 0, '#e8f4f8', { top: '#ffffff', left: '#d6eaf0', right: '#b9d6df' });
+        quadY(y + d + .001, x + .05, x + w - .05, h * .62, h * .62 + 1.5, '#9fc3cf');          // freezer door line
+        quadY(y + d + .002, x + w - .2, x + w - .14, h * .2, h * .55, '#7f9aa6');              // handle
+        quadY(y + d + .002, x + w - .2, x + w - .14, h * .68, h * .9, '#7f9aa6');
+        [['#ff6fae', .15, .78], ['#ffd23d', .32, .72], ['#3ddc84', .22, .4]].forEach(([c, dx, zz]) => quadY(y + d + .003, x + dx, x + dx + .1, h * zz, h * zz + 5, c));
+        const glow = bots.some((o) => o.activity && o.activity.n === 'fridge' && !o.path.length);
+        if (glow) { ctx.globalAlpha = .35; quadY(y + d + .004, x + .05, x + w - .25, h * .05, h * .6, '#fff8c8'); ctx.globalAlpha = 1; }
+        break;
+      }
+      case 'snacks':
+        box(x, y, w, d, h, 0, '#a8673a');
+        [['#e84a5f', .1], ['#ffd23d', .35], ['#4da3ff', .6]].forEach(([c, dx]) => box(x + dx, y + .2, .2, .35, 9, h, c));
+        box(x + .15, y + .1, .5, .5, 3, h + 9, '#f4e1c1');
+        break;
       case 'vending':
         box(x, y, w, d, h, 0, '#e84a5f');
         quadX(x + w + .001, y + .1, y + d - .25, 14, h - 8, '#bfe9ff');
@@ -524,10 +607,10 @@
     ctx.font = 'bold 13px ui-sans-serif, system-ui, sans-serif'; ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 10;
     ctx.fillText(text, 0, 0); ctx.restore();
   }
-  function signX(text, y, z, color) {
+  function signX(text, y, z, color, size = 14) {
     const p = iso(0, y, z);
     ctx.save(); ctx.translate(p.x, p.y); ctx.transform(1, -0.5, 0, 1, 0, 0);
-    ctx.font = 'bold 14px ui-sans-serif, system-ui, sans-serif'; ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 12;
+    ctx.font = `bold ${size}px ui-sans-serif, system-ui, sans-serif`; ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 12;
     ctx.fillText(text, 0, 0); ctx.restore();
   }
   function drawWalls() {
@@ -551,6 +634,7 @@
     signY('⚖ COMPLIANCE', 4.9, 92, '#7fd4ff');
     signY('🎬 CONTENT STUDIO', 19.8, 92, '#ff9bd0');
     signX('LOUNGE', 14.5, 70, '#ff6fae');
+    signX('EVERCRESTCORP COMPLIANCE', 7.7, 90, '#ffd23d', 15);
     // posting calendar board (content wall, between windows)
     quadY(0.001, 10.4, 13.6, 34, 82, '#f1ecff');
     for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) {
@@ -678,7 +762,27 @@
     ctx.globalAlpha = 1;
   }
 
+  function drawActivity(b, t) {
+    if (!b.activity || b.activity !== b.spot || b.path.length || b.task) return;
+    const p = iso(b.x, b.y, b.z + 26), f = b.face || 1;
+    ctx.font = '15px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    ctx.textAlign = 'center';
+    if (b.actKind === 'eat') {
+      const bite = (Math.sin(t * 3 + b.phase) + 1) / 2;  // hand goes to mouth and back
+      ctx.fillText(b.food, p.x + f * (14 - bite * 6), p.y - 4 - bite * 12);
+      if (bite > 0.95 && Math.floor(t * 3) % 4 === 0) { ctx.font = '9px sans-serif'; ctx.fillStyle = '#ffd23d'; ctx.fillText('nom', p.x + f * 16, p.y - 26); }
+    } else if (b.actKind === 'play') {
+      const jig = Math.sin(t * 14 + b.phase) * 1.5;
+      ctx.fillText(b.spot.n === 'billiards' ? '🎱' : '🎮', p.x + f * 12, p.y + jig);
+      if (Math.floor(t * 2 + b.phase) % 3 === 0) { ctx.font = '10px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('✦', p.x + f * 22, p.y - 14); }
+    } else {
+      ctx.fillText(b.spot.n === 'sofa' ? '📱' : '💤', p.x + f * 12, p.y - 2 + Math.sin(t * 1.5) * 2);
+    }
+    ctx.textAlign = 'left';
+  }
+
   function drawOverlay(b, t) {
+    drawActivity(b, t);
     const top = iso(b.x, b.y, b.z + 64);
     if (b.bubble && b.bubble.until > t) drawBubble(top.x, top.y - 10, b.bubble.text);
     else b.bubble = null;
@@ -805,7 +909,7 @@
         <button class="close" data-act="close">×</button></div>
       <span class="pill ${status}">${label}</span>
       <h4>Current task</h4>
-      ${b.task ? `<div class="task">${esc(b.task.text)}<div class="bar"><i style="width:${pct}%"></i></div></div>` : '<div class="muted">Walang ginagawa — nasa lounge 🛋️</div>'}
+      ${b.task ? `<div class="task">${esc(b.task.text)}<div class="bar"><i style="width:${pct}%"></i></div></div>` : '<div class="muted">Nothing to do, chilling in the lounge 🛋️</div>'}
       <h4>Queue (${b.queue.length})</h4>
       ${b.queue.length ? `<ul>${b.queue.slice(0, 5).map((q) => `<li>⏳ ${esc(q.text)}</li>`).join('')}</ul>` : '<div class="muted">Empty</div>'}
       <h4>Recent (${b.done} done)</h4>
@@ -823,14 +927,14 @@
     if (act === 'file') { pickerTarget = b; picker.click(); }
     if (act === 'break') {
       if (b.state === 'break') { b.state = 'idle'; feed(b, 'back to work 💪'); }
-      else { b.state = 'break'; b.breakUntil = now() + 25; b.idleTimer = 0; feed(b, 'on a short break ☕'); say(b, 'Yehey break!'); }
+      else { b.state = 'break'; b.breakUntil = now() + 25; b.idleTimer = 0; feed(b, 'on a short break ☕'); say(b, 'Yay, break time! 🎉'); }
     }
     panelSig = '';
   });
   function select(b) {
     selected = b; panelSig = '';
     panel.classList.toggle('hidden', !b);
-    if (b) { Sound.play('blip'); renderPanel(); if (!b.bubble) say(b, rand(['Hi! 👋', 'Yes boss?', 'Ano po?']), 1.6); }
+    if (b) { Sound.play('blip'); renderPanel(); if (!b.bubble) say(b, rand(['Hi! 👋', 'Yes, boss?', 'How can I help?']), 1.6); }
   }
 
   document.getElementById('tabs').addEventListener('click', (e) => {
@@ -890,7 +994,7 @@
     }
     if (DOC.test(name)) return startPipeline('compliance', name);
     if (MEDIA.test(name)) return startPipeline('content', name);
-    feed(botById.mgr, `hindi ko alam saan ilalagay ang ${name} — PDF/DOC or video/image lang po`);
+    feed(botById.mgr, `Not sure where ${name} goes. PDF/DOC or video/image only, please`);
   }
   let dragDepth = 0;
   stage.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; dropzone.classList.add('show'); });
@@ -936,7 +1040,7 @@
       live = true;
       document.getElementById('liveBadge').classList.remove('hidden');
       demo = false; document.getElementById('demoToggle').checked = false;
-      feed(botById.mgr, `LIVE na tayo! PDF/DOCX → compliance ⚖️, video/image → content 🎬` +
+      feed(botById.mgr, `We're LIVE! PDF/DOCX → compliance ⚖️, video/image → content 🎬` +
         (info.claude ? ' · Claude is on ✨' : ' · (no Claude key: rule-based mode)') +
         (info.ffmpeg ? '' : ' · ffmpeg missing: videos kept as-is'));
       setInterval(pollLive, 1200);
@@ -957,7 +1061,7 @@
     feed(botById.mgr, `uploading ${file.name}… (${(file.size / 1048576).toFixed(1)} MB)`);
     try {
       const r = await (await fetch('/api/upload', { method: 'POST', body: fd })).json();
-      r.skipped.forEach((n) => feed(botById.mgr, `hindi tinanggap: ${n} (type o size)`));
+      r.skipped.forEach((n) => feed(botById.mgr, `Skipped ${n} (file type or size)`));
     } catch (err) { feed(botById.mgr, `upload failed: ${file.name}`); }
   }
   function findTask(b, id) { return [b.task, ...b.queue].find((t) => t && t.id === id); }
@@ -988,7 +1092,7 @@
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail || 'error');
       Sound.play('upload');
-      feed(botById.mgr, 'Affiliate job started! Panoorin ang content team 🎬');
+      feed(botById.mgr, 'Affiliate job started! Watch the content team go 🎬');
       affForm.reset(); affModal.classList.add('hidden'); affMsg.textContent = '';
     } catch (err) { affMsg.textContent = 'Hindi nagsimula: ' + err.message; }
     btn.disabled = false;
@@ -1051,9 +1155,54 @@
   document.getElementById('phoneOff').onclick = () => setPhone(false);
   document.getElementById('phoneBox').addEventListener('toggle', paintPhone);
 
+  // ───────────────────────── KYC / KYB / URL ─────────────────────────
+  const kycModal = document.getElementById('kycModal'), kycForm = document.getElementById('kycForm'), kycMsg = document.getElementById('kycMsg');
+  function kycTab(k) {
+    kycForm.elements.kind.value = k;
+    document.querySelectorAll('.ktabs button').forEach((b) => b.classList.toggle('on', b.dataset.k === k));
+    kycForm.querySelectorAll('label[class]').forEach((l) => { l.style.display = l.classList.contains('k-' + k) ? '' : 'none'; });
+    kycForm.querySelector('.lbl-name').textContent = { person: 'Buong pangalan', business: 'Pangalan ng negosyo (registered)', url: 'Pangalan ng negosyo (opsyonal)' }[k];
+  }
+  document.querySelectorAll('.ktabs button').forEach((b) => (b.onclick = () => kycTab(b.dataset.k)));
+  document.getElementById('kycBtn').onclick = () => { kycModal.classList.remove('hidden'); kycTab(kycForm.elements.kind.value); kycMsg.textContent = live ? '' : 'Buksan muna ang server.'; };
+  document.getElementById('kycClose').onclick = () => kycModal.classList.add('hidden');
+  kycModal.addEventListener('click', (e) => { if (e.target === kycModal) kycModal.classList.add('hidden'); });
+  kycForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!live) { kycMsg.textContent = 'Offline: buksan muna ang server.'; return; }
+    const btn = kycForm.querySelector('.primary'); btn.disabled = true; kycMsg.textContent = 'Sending…';
+    try {
+      const j = await (await fetch('/api/kyc', { method: 'POST', body: new FormData(kycForm) })).json();
+      if (!j.ok) throw new Error(j.error || j.detail || 'error');
+      Sound.play('upload'); feed(botById.mgr, 'Compliance check started 🛡️ (first run downloads the sanctions lists, about 1-2 minutes)');
+      kycForm.reset(); kycModal.classList.add('hidden'); kycMsg.textContent = '';
+    } catch (err) { kycMsg.textContent = 'Hindi nagsimula: ' + err.message; }
+    btn.disabled = false;
+  };
+  document.getElementById('aiTest').onclick = async () => {
+    const info = document.getElementById('aiInfo');
+    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formJSON()) });
+    info.textContent = 'Testing…';
+    const j = await (await fetch('/api/ai/test', { method: 'POST' })).json();
+    info.textContent = (j.ok ? '✅ ' : '❌ ') + j.message + (j.models && j.models.length ? ' · ' + j.models.slice(0, 8).join(', ') : '');
+    if (j.models) document.getElementById('ollamaModels').innerHTML = j.models.map((m) => `<option value="${m}">`).join('');
+  };
+  document.getElementById('driveDetect').onclick = async () => {
+    const j = await (await fetch('/api/drive/detect')).json();
+    const list = document.getElementById('driveList');
+    if (!j.folders.length) { list.textContent = 'Walang nakitang Google Drive for desktop. I-install sa drive.google.com/drive/download at mag-login.'; return; }
+    list.innerHTML = 'Piliin ang folder (tapos 💾 Save):';
+    j.folders.forEach((f) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = f.split('/').slice(-2).join(' / ');
+      b.title = f; b.onclick = () => { setForm.elements.drive_folder.value = f; list.textContent = '✔ ' + f + ' (pindutin ang 💾 Save)'; }; list.append(b); });
+  };
+
   const muteBtn = document.getElementById('muteBtn');
   const paintMute = () => { muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; muteBtn.title = Sound.muted ? 'Sound off (click to turn on)' : 'Sound on (click to mute)'; };
   muteBtn.addEventListener('click', () => { Sound.toggle(); paintMute(); });
+  const musicBtn = document.getElementById('musicBtn');
+  const paintMusic = () => { musicBtn.classList.toggle('on', Sound.music); musicBtn.title = Sound.music ? 'Background music on' : 'Background music off'; };
+  musicBtn.addEventListener('click', () => { Sound.toggleMusic(); paintMusic(); });
+  paintMusic();
   paintMute();
 
   window.BotOffice = { sound: Sound, bots: botById, assign, startPipeline, applyEvent, setDemo: (v) => { demo = v; document.getElementById('demoToggle').checked = v; } };
