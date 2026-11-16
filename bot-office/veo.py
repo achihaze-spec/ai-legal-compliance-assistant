@@ -31,7 +31,11 @@ DEFAULTS = {
     "resolution": "720p",
     "price_per_second": 0.15,       # USD, for the estimate only: check your Google pricing page
     "budget_per_job": 30.0,         # USD cap per product (all 5 videos)
-    "drive_folder": "",             # local Google Drive for desktop folder for case outputs (outputs.py)
+    "drive_folder": "",
+    "ai_provider": "claude",        # claude | ollama_cloud | ollama_local (ai.py)
+    "ollama_model": "gemma4:31b",
+    "ollama_api_key": "",
+    "ollama_url": "http://localhost:11434",             # local Google Drive for desktop folder for case outputs (outputs.py)
 }
 
 
@@ -49,7 +53,7 @@ def save(new: dict) -> dict:
     for k, v in new.items():
         if k not in DEFAULTS:
             continue
-        if k == "api_key" and (not v or "•" in v):
+        if k in ("api_key", "ollama_api_key") and (not v or "•" in v):
             continue  # masked value sent back unchanged
         if isinstance(DEFAULTS[k], float):
             v = float(v)
@@ -67,8 +71,9 @@ def save(new: dict) -> dict:
 
 def public(s: dict | None = None) -> dict:
     s = dict(s or load())
-    k = s.get("api_key", "")
-    s["api_key"] = (k[:4] + "•" * 8 + k[-4:]) if len(k) > 10 else ("•" * len(k))
+    for f in ("api_key", "ollama_api_key"):
+        k = s.get(f, "")
+        s[f] = (k[:4] + "•" * 8 + k[-4:]) if len(k) > 10 else ("•" * len(k))
     s["configured"] = configured(s)
     return s
 

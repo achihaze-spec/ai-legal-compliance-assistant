@@ -62,11 +62,11 @@ def save_case(merchant: str, kind: str, result: dict, html: str, extra_files: li
     folder = case_folder(merchant)
     if not folder:
         return None
-    base = folder / f"{folder.name}_{kind}"
-    base.with_suffix(".html").write_text(html, encoding="utf-8")
-    base.with_suffix(".json").write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    stem = f"{folder.name}_{kind}"  # the date's dots are not an extension, so build names as strings
+    (folder / f"{stem}.html").write_text(html, encoding="utf-8")
+    (folder / f"{stem}.json").write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     try:
-        _docx(result, kind, merchant, base.with_suffix(".docx"))
+        _docx(result, kind, merchant, folder / f"{stem}.docx")
     except Exception as exc:  # the html/json are still there
         (folder / "docx_error.txt").write_text(str(exc))
     for item in extra_files or []:  # Path, or (Path, name to save as)

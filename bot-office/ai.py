@@ -1,9 +1,14 @@
-"""Optional Claude brain for the bots.
+"""Optional AI brain for the bots: Claude, or open models through Ollama.
 
-If the `anthropic` package is installed and credentials are available
-(ANTHROPIC_API_KEY, or an `ant auth login` profile), Reg Checker and Caption
-Writer ask Claude. Otherwise every function returns None and the bots fall
-back to their rule-based / template behaviour, so the office always works.
+Provider is chosen in ⚙️ Settings (`ai_provider`):
+  claude        Anthropic API (ANTHROPIC_API_KEY or an `ant auth login` profile), structured outputs
+  ollama_cloud  Ollama's cloud (https://ollama.com), needs an Ollama API key (Authorization: Bearer)
+  ollama_local  Ollama on this computer (http://localhost:11434), no key
+Ollama speaks the Anthropic Messages API, so the same SDK is used with another base_url.
+Ollama's cloud models do not support structured outputs, so for Ollama the JSON shape is
+asked for in the prompt and checked here; anything malformed falls back to templates.
+If no provider is usable every function returns None and the bots use their rule-based /
+template behaviour, so the office always works.
 """
 from __future__ import annotations
 
@@ -33,10 +38,30 @@ def _has_credentials() -> bool:
     return (Path.home() / ".config" / "anthropic").is_dir()  # `ant auth login` profile
 
 
+def _settings() -> dict:
+    try:
+        import veo
+        return veo.load()
+    except Exception:
+        return {}
+
+
+def provider() -> str:
+    return _settings().get("ai_provider", "claude")
+
+
 def _get_client():
     global _client
     if anthropic is None or _disabled or os.environ.get("BOT_OFFICE_AI", "on").lower() == "off":
         return None
+    s = _settings()
+    p = s.get("ai_provider", "claude")
+    if p == "ollama_local":
+        return anthropic.Anthropic(base_url=s.get("ollama_url") or "http://localhost:11434", api_key="ollama", max_retries=1)
+    if p == "ollama_cloud":
+        key = s.get("ollama_api_key", "")
+        # Ollama's cloud wants Authorization: Bearer (auth_token), not x-api-key
+        return anthropic.Anthropic(base_url="https://ollama.com", auth_token=key, max_retries=1) if key else None
     if not _has_credentials():
         return None
     if _client is None:
@@ -52,11 +77,68 @@ def available() -> bool:
     return _get_client() is not None
 
 
+def _extract_json(text: str) -> dict | None:
+    """First JSON object in a model reply (handles ```json fences and chatter around it)."""
+    if not text:
+        return None
+    t = text.strip()
+    if "```" in t:
+        parts = t.split("```")
+        t = next((p[4:] if p.startswith("json") else p for p in parts[1::2]), t)
+    start, depth = t.find("{"), 0
+    if start < 0:
+        return None
+    for i in range(start, len(t)):
+        depth += {"{": 1, "}": -1}.get(t[i], 0)
+        if depth == 0:
+            try:
+                return json.loads(t[start:i + 1])
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def _valid(obj, schema) -> bool:
+    """Small JSON-schema check (type / required / enum / items) for Ollama replies."""
+    t = schema.get("type")
+    if t == "object":
+        return isinstance(obj, dict) and all(k in obj and _valid(obj[k], schema["properties"][k]) for k in schema.get("required", []))
+    if t == "array":
+        return isinstance(obj, list) and all(_valid(x, schema.get("items", {})) for x in obj)
+    if t == "string":
+        return isinstance(obj, str) and ("enum" not in schema or obj in schema["enum"])
+    if t == "number":
+        return isinstance(obj, (int, float)) and not isinstance(obj, bool)
+    if t == "boolean":
+        return isinstance(obj, bool)
+    return True
+
+
+def _ask_json_ollama(client, system: str, user: str, schema: dict, max_tokens: int) -> dict | None:
+    s = _settings()
+    instr = ("\n\nReply with ONE JSON object only, no other text, matching this JSON Schema:\n" + json.dumps(schema))
+    for attempt in range(2):  # one retry if the JSON comes back malformed
+        try:
+            resp = client.messages.create(model=s.get("ollama_model") or "gemma4:31b", max_tokens=max_tokens,
+                                          system=system + instr, messages=[{"role": "user", "content": user}])
+        except Exception as exc:
+            log.warning("Ollama error (%s: %s), using template fallback", type(exc).__name__, exc)
+            return None
+        text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+        obj = _extract_json(text)
+        if obj is not None and _valid(obj, schema):
+            return obj
+        log.warning("Ollama reply was not valid JSON for the schema (attempt %d)", attempt + 1)
+    return None
+
+
 def _ask_json(system: str, user: str, schema: dict, max_tokens: int = 16000) -> dict | None:
     global _disabled
     client = _get_client()
     if client is None:
         return None
+    if provider().startswith("ollama"):
+        return _ask_json_ollama(client, system, user, schema, min(max_tokens, 8000))
     try:
         response = client.beta.messages.create(
             model=MODEL,

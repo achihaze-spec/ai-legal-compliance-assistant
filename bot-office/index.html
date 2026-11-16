@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-<title>24/7 Bots — Bot Office</title>
+<title>Evercrestcorp Compliance · 24/7 Bots</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="apple-touch-icon" href="/icon.png" />
@@ -14,7 +14,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="logo">🤖</span>
-      <b>24/7 Bots</b>
+      <b>Evercrestcorp Compliance</b>
       <span class="live hidden" id="liveBadge">● LIVE</span>
       <span class="hint">click a bot to open its panel · drop files to give them work</span>
     </div>
@@ -30,6 +30,7 @@
       <button class="kycbtn" id="kycBtn" title="KYC / KYB / sanctions / URL check">🛡️ KYC</button>
       <button class="affbtn" id="affBtn" title="Gumawa ng 5 affiliate videos mula sa product link">🛒 Affiliate</button>
       <button class="mute" id="setBtn" title="Settings">⚙️</button>
+      <button class="mute music" id="musicBtn" title="Background music">🎵</button>
       <button class="mute" id="muteBtn" title="Sound">🔊</button>
       <label class="demo"><input type="checkbox" id="demoToggle" checked /> demo</label>
     </div>
@@ -86,6 +87,15 @@
           <label>Budget kada produkto (USD, max)<input name="budget_per_job" type="number" step="1" /></label>
           <button class="primary" type="submit">💾 Save</button>
           <span class="msg" id="setMsg"></span>
+          <details class="modelbox" id="aiBox"><summary>🧠 AI provider (scripts, captions, document review)</summary>
+            <label>Provider <select name="ai_provider"><option value="claude">Claude (Anthropic)</option>
+              <option value="ollama_cloud">Ollama Cloud (open models, fast)</option><option value="ollama_local">Ollama Local (on this Mac)</option></select></label>
+            <label>Ollama model <small>(cloud: e.g. gemma4:31b · local: e.g. gemma4:e2b)</small><input name="ollama_model" type="text" list="ollamaModels" /><datalist id="ollamaModels"></datalist></label>
+            <label>Ollama API key <small>(cloud only, from ollama.com/settings/keys)</small><input name="ollama_api_key" type="password" autocomplete="new-password" /></label>
+            <label>Ollama local URL<input name="ollama_url" type="text" placeholder="http://localhost:11434" /></label>
+            <button type="button" class="ghost" id="aiTest">🔌 Test AI provider</button>
+            <div id="aiInfo" class="muted"></div>
+          </details>
           <details class="modelbox" id="driveBox"><summary>📁 Google Drive folder (compliance reports)</summary>
             <p class="muted">Kailangan ang Google Drive for desktop sa Mac. Bawat case: folder na "dd.mm.yy_Merchant name" na may .docx, .html at .json.</p>
             <label>Folder path<input name="drive_folder" type="text" placeholder="/Users/ikaw/Library/CloudStorage/GoogleDrive-.../My Drive/KYB Reviews" /></label>

@@ -1,4 +1,4 @@
-# 🤖 Bot Office — 24/7 Bots
+# 🤖 Evercrestcorp Compliance · Bot Office (24/7 Bots)
 
 A cute isometric office where the **compliance** and **content** bots live. When a bot has work it walks to its desk.
 When it doesn't, it hangs out in the lounge (sofa, beanbags, billiards, arcade) and chats with the others.
@@ -14,6 +14,36 @@ Open `bot-office/index.html` in a browser. No install and no build step.
    - **Linux:** `start-linux.sh`
 3. Sa unang beses, mag-i-install muna ito (1-3 minuto). Pagkatapos, kusang bubukas ang opisina sa browser.
 4. Huwag isara ang itim na window habang ginagamit. Isara ito para ihinto.
+
+## 🛡️ KYC · KYB · sanctions · URL checks
+Click **🛡️ KYC** and pick a tab:
+- **👤 Person (KYC):** name, DOB, nationality, ID number, optional MRZ lines. Screens OFAC SDN + Consolidated, UN, EU and UK
+  official lists (downloaded and cached for 24 h, every version logged with SHA-256), runs the MRZ check digits and compares
+  the MRZ with the application, checks the FATF black/grey lists, and builds PEP / adverse-media searches from the SOP
+  library (incl. local-language terms).
+- **🏢 Business (KYB / UBO):** company details, shareholders (`Name | % | owns (blank = the business) | country`, one per
+  line) and directors. Computes UBOs through every layer (25%, or 10% for offshore / FATF grey), applies the OFAC 50% Rule,
+  screens the company and every party, checks the website, and lists the KYB documents to collect.
+- **🌐 Website:** domain age (RDAP), HTTPS/SSL, redirects, first Wayback snapshot, privacy / terms / contact pages, red-flag
+  keywords (gambling, crypto, counterfeit...), business-name match, and a Data Privacy Act check of the privacy policy.
+
+Outcomes: STOP (possible sanctions true match: escalate to the MLRO, no tip-off), REJECT, ESCALATE, PENDING (RFI), EDD,
+INCOMPLETE, CLEAR* (lists screened only; finish PEP / adverse media). All dispositions are suggestions for the analyst.
+The screening maths comes from the evercrest-kyb toolkit in `kyb/`.
+
+**Saving to Google Drive:** install Google Drive for desktop, then ⚙️ → 📁 Google Drive folder → pick the folder. Every case
+gets a folder `dd.mm.yy_Merchant name` with a .docx report, the .html report and a .json audit file (document compliance
+reviews too, with the original file).
+
+## 🧠 AI provider
+⚙️ → 🧠 AI provider: **Claude** (Anthropic key), **Ollama Cloud** (open models on ollama.com: create a key at
+ollama.com/settings/keys or run `ollama signin`) or **Ollama Local** (models on this Mac: install Ollama, then e.g.
+`ollama pull gemma4:e2b`). Ollama is called through its Anthropic-compatible API; replies are checked against the expected
+JSON and anything malformed falls back to the templates. **Test AI provider** lists the models it can see.
+
+## 🎵 Fun stuff
+Bots speak English and tell jokes in the lounge, raid the fridge and snack shelf, play arcade and billiards, and nap on the
+sofa. 🎵 toggles an optional lo-fi background loop (synthesized in the browser, no audio files); 🔊 mutes everything.
 
 ## 📱 Gamitin sa phone (same Wi-Fi)
 1. Sa Mac: ⚙️ → **📱 Phone access** → maglagay ng PIN (4-8 numero) → **I-on**. May lalabas na QR code at address.
