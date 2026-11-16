@@ -1161,7 +1161,8 @@
     kycForm.elements.kind.value = k;
     document.querySelectorAll('.ktabs button').forEach((b) => b.classList.toggle('on', b.dataset.k === k));
     kycForm.querySelectorAll('label[class]').forEach((l) => { l.style.display = l.classList.contains('k-' + k) ? '' : 'none'; });
-    kycForm.querySelector('.lbl-name').textContent = { person: 'Buong pangalan', business: 'Pangalan ng negosyo (registered)', url: 'Pangalan ng negosyo (opsyonal)' }[k];
+    kycForm.querySelector('.lbl-name').textContent = { person: 'Buong pangalan', business: 'Pangalan ng negosyo (registered)', url: 'Pangalan ng negosyo (opsyonal)' }[k]
+      + (k === 'business' ? ' (opsyonal kung may Drive link)' : '');
   }
   document.querySelectorAll('.ktabs button').forEach((b) => (b.onclick = () => kycTab(b.dataset.k)));
   document.getElementById('kycBtn').onclick = () => { kycModal.classList.remove('hidden'); kycTab(kycForm.elements.kind.value); kycMsg.textContent = live ? '' : 'Buksan muna ang server.'; };

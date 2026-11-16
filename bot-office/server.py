@@ -31,6 +31,7 @@ import ai
 import veo
 import compliance
 import kyc
+import kyb_docs
 import outputs
 import content
 
@@ -190,7 +191,12 @@ async def kyc_start(request: Request):
     form = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
     if kind not in ("person", "business", "url"):
         raise HTTPException(400, "kind must be person, business or url")
-    if kind in ("person", "business") and not form.get("name", "").strip():
+    if kind == "business" and form.get("drive_link", "").strip():
+        try:
+            kyb_docs.parse_link(form["drive_link"])
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}
+    elif kind in ("person", "business") and not form.get("name", "").strip():
         return {"ok": False, "error": "Kailangan ang pangalan."}
     if kind == "url" and not form.get("website", "").strip():
         return {"ok": False, "error": "Kailangan ang website / URL."}
@@ -232,19 +238,51 @@ def drive_detect():
     return {"folders": outputs.detect(), "current": veo.load().get("drive_folder", "")}
 
 
+def read_drive_docs(form: dict, work: Path) -> dict:
+    """Drive link → documents → checklist, details and issues; returns the form with the blanks filled."""
+    got = kyb_docs.fetch(form["drive_link"], work / "documents")
+    docs = kyb_docs.read_docs(got["files"])
+    ex, how = kyb_docs.extract(docs)
+    rows = kyb_docs.checklist(docs)
+    filled = kyb_docs.merge(form, ex, got["folder_name"])
+    _, gaps = kyb_docs.owners_text(ex)
+    return {"form": filled, "via": got["via"], "notes": got["notes"], "checklist": rows, "extracted": ex,
+            "extracted_by": ai.provider() if how == "ai" else "rules", "mrz": kyb_docs.find_mrz(docs),
+            "issues": kyb_docs.issues(form, ex, docs, rows) + gaps,
+            "files": [{k: v for k, v in d.items() if k not in ("text", "path")} for d in docs]}
+
+
 def run_kyc_job(job: dict) -> None:
     jid, t, f = job["id"], job["type"], job["form"]
     work = KYC_DIR / jid
     label = {"person": "KYC", "business": "KYB", "url": "URL"}[t]
     merchant = (f.get("name") or f.get("website", "")).strip()
-    time.sleep(2)
-    emit(bot="doc", type="done", task=f"{jid}-intake", text=f"{label}: {merchant} ✔ intake")
+    docs_info = None
+    if t == "business" and f.get("drive_link", "").strip():
+        emit(bot="doc", type="done", task=f"{jid}-intake", text=f"KYB: {merchant or 'Drive folder'} ✔ intake")
+        emit(bot="doc", type="task", task=f"{jid}-drive", text="📂 Reading the KYB documents from Drive", secs=10)
+        try:
+            docs_info = read_drive_docs(f, work)
+        except Exception as exc:
+            emit(bot="doc", type="done", task=f"{jid}-drive", level="HIGH", text=f"Drive link: {exc}")
+            emit(bot="mgr", type="log", text=f"⚠️ Drive link: {exc}")
+            if not f.get("name", "").strip():
+                return
+        else:
+            f = docs_info.pop("form")
+            merchant = f.get("name", "").strip() or "Unnamed merchant"
+            missing = [c["item"] for c in docs_info["checklist"] if c["status"] != "Received"]
+            emit(bot="doc", type="done", task=f"{jid}-drive", level="MEDIUM" if missing or docs_info["issues"] else "LOW",
+                 text=f"{merchant}: {len(docs_info['files'])} file(s) read · {len(missing)} missing · {len(docs_info['issues'])} issue(s)")
+    else:
+        time.sleep(2)
+        emit(bot="doc", type="done", task=f"{jid}-intake", text=f"{label}: {merchant} ✔ intake")
     emit(bot="reg", type="task", task=f"{jid}-screen",
          text="Sanctions screening (OFAC · UN · EU · UK)" if t != "url" else "Website checks", secs=8)
     if t == "person":
         r = kyc.kyc_person(f, work, LIST_CACHE)
     elif t == "business":
-        r = kyc.kyb_business(f, work, LIST_CACHE)
+        r = kyc.kyb_business(f, work, LIST_CACHE, docs_info)
     else:
         import url_check
         u = url_check.check(f["website"], f.get("name", ""))

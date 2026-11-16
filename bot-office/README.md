@@ -24,6 +24,15 @@ Click **🛡️ KYC** and pick a tab:
 - **🏢 Business (KYB / UBO):** company details, shareholders (`Name | % | owns (blank = the business) | country`, one per
   line) and directors. Computes UBOs through every layer (25%, or 10% for offshore / FATF grey), applies the OFAC 50% Rule,
   screens the company and every party, checks the website, and lists the KYB documents to collect.
+- **📂 Drive link (KYB):** paste the Google Drive link of the merchant's KYB folder. The bots find it in
+  Google Drive for desktop on this Mac (private, works for folders that are not shared; for "Shared with me"
+  folders, right-click → Organize → Add shortcut to My Drive), or download it if it is shared as "Anyone with
+  the link" (switch it back to Restricted afterwards: it is personal data). They read every PDF / Word / text
+  file, tick the KYB checklist (missing items become RFIs), pull the business details, directors and
+  shareholders with % (using the AI provider in ⚙️, or simple rules), find MRZ lines on IDs, flag expired
+  documents and name mismatches, then run the normal KYB checks. Typed fields always win over the documents.
+  The report adds a document inventory with each file's Drive ID and last-modified time. Scanned PDFs and
+  photos are listed for the analyst to read.
 - **🌐 Website:** domain age (RDAP), HTTPS/SSL, redirects, first Wayback snapshot, privacy / terms / contact pages, red-flag
   keywords (gambling, crypto, counterfeit...), business-name match, and a Data Privacy Act check of the privacy policy.
 

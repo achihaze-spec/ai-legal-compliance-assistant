@@ -53,6 +53,8 @@
           <div class="head"><h2>🛡️ Compliance check</h2><button type="button" class="close" id="kycClose">×</button></div>
           <div class="ktabs"><button type="button" data-k="person" class="on">👤 Tao (KYC)</button><button type="button" data-k="business">🏢 Negosyo (KYB / UBO)</button><button type="button" data-k="url">🌐 Website</button></div>
           <input type="hidden" name="kind" value="person" />
+          <label class="k-business drivebox">📂 Google Drive link ng KYB documents <small>(opsyonal: babasahin ng bots ang lahat ng files at pupunuin ang mga kulang sa ibaba)</small>
+            <input name="drive_link" type="text" placeholder="https://drive.google.com/drive/folders/..." /></label>
           <label class="k-person k-business k-url"><span class="lbl-name">Buong pangalan</span><input name="name" type="text" /></label>
           <label class="k-person">Iba pang pangalan / alias <small>(comma)</small><input name="aliases" type="text" /></label>
           <label class="k-person">Petsa ng kapanganakan<input name="dob" type="date" /></label>
