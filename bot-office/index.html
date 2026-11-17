@@ -28,6 +28,7 @@
       <span title="Tasks waiting"><b id="statQueue">0</b> queued</span>
       <span title="Tasks finished"><b id="statDone">0</b> done</span>
       <button class="kycbtn" id="kycBtn" title="KYC / KYB / sanctions / URL check">🛡️ KYC</button>
+      <button class="contbtn" id="contBtn" title="Content Hub: edit, caption, schedule and auto-post videos">📱 Content</button>
       <button class="affbtn" id="affBtn" title="Gumawa ng 5 affiliate videos mula sa product link">🛒 Affiliate</button>
       <button class="mute" id="setBtn" title="Settings">⚙️</button>
       <button class="mute music" id="musicBtn" title="Background music">🎵</button>
@@ -74,6 +75,21 @@
           <span class="msg" id="kycMsg"></span>
         </form>
       </div>
+      <div class="modal hidden" id="contModal">
+        <form class="affform" id="contForm">
+          <div class="head"><h2>📱 Content Hub</h2><button type="button" class="close" id="contClose">×</button></div>
+          <p class="muted">JP edits → Asher writes the SEO caption and checks the links → Shane (TikTok + yellow basket) and Jacob (Shopee link on FB/IG) → Ashley picks the slots → David posts.</p>
+          <label>Videos <small>(isa o marami)</small><input id="contFiles" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" multiple /></label>
+          <div id="contRows"></div>
+          <fieldset class="plats"><legend>Saan ipo-post</legend>
+            <label class="check"><input type="checkbox" name="plat" value="tiktok" checked /> TikTok (Shane + Claude)</label>
+            <label class="check"><input type="checkbox" name="plat" value="facebook" checked /> Facebook Reels</label>
+            <label class="check"><input type="checkbox" name="plat" value="instagram" checked /> Instagram Reels</label></fieldset>
+          <label>Kailan <select name="when"><option value="slots">Sa susunod na libreng slots (Ashley)</option><option value="now">Ngayon na (2 minuto ang pagitan)</option></select></label>
+          <button class="primary" type="submit">▶ Run everything</button>
+          <span class="msg" id="contMsg"></span>
+        </form>
+      </div>
       <div class="modal hidden" id="setModal">
         <form class="affform" id="setForm">
           <div class="head"><h2>⚙️ Google (Veo) automation</h2><button type="button" class="close" id="setClose">×</button></div>
@@ -103,6 +119,16 @@
             <label>Folder path<input name="drive_folder" type="text" placeholder="/Users/ikaw/Library/CloudStorage/GoogleDrive-.../My Drive/KYB Reviews" /></label>
             <button type="button" class="ghost" id="driveDetect">🔎 Hanapin ang Drive folders</button>
             <div id="driveList" class="muted"></div>
+          </details>
+          <details class="modelbox" id="contentBox"><summary>📱 Content Hub (schedule, captions, auto-post)</summary>
+            <label>Posting times <small>(Ashley, oras sa Manila, comma)</small><input name="post_slots" type="text" placeholder="07:00, 12:00, 15:00, 20:00, 23:00" /></label>
+            <label>Caption rules ni Asher <small>(opsyonal: tono, salitang bawal, laging may hashtag na…)</small><textarea name="caption_rules" rows="2"></textarea></label>
+            <p class="muted"><b>Facebook + Instagram auto-post</b> (Meta Graph API). Kailangan: Facebook Page, Instagram Professional account na naka-link sa Page, at Page access token na may pages_manage_posts, pages_read_engagement, instagram_basic, instagram_content_publish, instagram_manage_comments. Tingnan ang README → "Connect Facebook and Instagram".</p>
+            <label>Facebook Page ID<input name="meta_page_id" type="text" /></label>
+            <label>Page access token <small>(naka-save lang sa Mac mo)</small><input name="meta_page_token" type="password" autocomplete="new-password" /></label>
+            <label>Instagram user ID <small>(kusang napupunan sa Test)</small><input name="meta_ig_user_id" type="text" /></label>
+            <button type="button" class="ghost" id="metaTest">🔌 Test Facebook / Instagram</button>
+            <div id="metaInfo" class="muted"></div>
           </details>
           <details class="modelbox" id="phoneBox"><summary>📱 Phone access (Wi-Fi)</summary>
             <p class="muted">Buksan ang Bot Office sa phone mo habang naka-on ang Mac at pareho kayong nasa iisang Wi-Fi.</p>

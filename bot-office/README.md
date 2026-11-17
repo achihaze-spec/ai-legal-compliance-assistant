@@ -13,7 +13,38 @@ they grab a coffee, play volleyball, dance or relax on a lounger, and chat with 
 - **Charlie, Risk Scout:** gives the result (STOP, REJECT, ESCALATE, PENDING, EDD, INCOMPLETE, CLEAR*) and writes the
   HTML and Word report, saved to Drive as `dd.mm.yy_Merchant name`.
 - **Hazel, Bot Manager:** helps everyone and sends the alerts (e.g. sanctions TRUE MATCH → MLRO, no tip-off).
-- **Content team:** Video Editor, Caption Writer, Scheduler and Poster.
+- **Content Hub** (its own nipa hut):
+  - **JP, Video Editor:** edits every clip to 9:16 and reviews the edit (length, sound, quality).
+  - **Asher, Content Manager:** SEO caption and hashtags (plus your caption rules in ⚙️), checks every affiliate link.
+  - **Shane, Affiliate · TikTok:** TikTok caption ("check the basket", #ad) and the TikTok Shop product for the yellow basket.
+  - **Jacob, Affiliate · Shopee:** Shopee affiliate link in the Facebook caption and as the first comment on Instagram.
+  - **Ashley, Scheduler:** picks the posting slots (Asia/Manila; times set in ⚙️).
+  - **David, Autopost:** posts at each slot (see below).
+- **Mikay (Muse)** and **Taks (Resident Pogi):** no tasks at all. They pose at the flower-arch Muse Spot, dance and drink coffee.
+
+## 📱 Content Hub
+Click **📱 Content**, pick one or more videos, add per video the TikTok Shop product link, the Shopee affiliate link
+and a line about the video, tick TikTok / Facebook / Instagram, then **▶ Run everything**. (Videos dropped on the
+office go through the same flow, without links.) Each batch gets a page with the edited video, JP's review, Asher's
+link check, and one card per platform with the caption, status, **Copy caption**, **🤖 Copy Claude prompt**,
+**Post now** and **Mark posted**.
+
+How David posts:
+- **Facebook and Instagram Reels:** automatically at the slot through the Meta Graph API, once the Page is
+  connected in ⚙️ → Content Hub. Instagram gets the Shopee link as the first comment (caption links aren't clickable).
+- **TikTok:** TikTok has no public API for adding products (the yellow basket), so at the slot David alerts you and
+  the batch page gives a ready-made prompt for **Claude in Chrome**: open TikTok Studio, upload, paste the caption, add the
+  product link, post. Browser bots that post for you break TikTok's terms, so they are not used.
+
+### Connect Facebook and Instagram
+1. Your Instagram must be a Professional (Business or Creator) account linked to your Facebook Page.
+2. At developers.facebook.com create an app (type Business), add the Facebook Login for Business and Instagram products.
+3. In the Graph API Explorer pick your app, ask for `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`,
+   `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, then generate a **Page** access token
+   (for a long-lived one, exchange it in the Access Token Debugger).
+4. In Bot Office ⚙️ → 📱 Content Hub paste the Page ID and the Page access token, then **Test**: it fills in the
+   Instagram user ID. The token stays in `data/settings.json` on your Mac.
+
 
 ## Run it
 Open `bot-office/index.html` in a browser. No install and no build step.
