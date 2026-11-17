@@ -1,7 +1,19 @@
-# 🤖 Evercrestcorp Compliance · Bot Office (24/7 Bots)
+# 🌴 Evercrestcorp Compliance Hub · Bot Office (24/7 Bots)
 
-A cute isometric office where the **compliance** and **content** bots live. When a bot has work it walks to its desk.
-When it doesn't, it hangs out in the lounge (sofa, beanbags, billiards, arcade) and chats with the others.
+A beachfront resort office where the **compliance** and **content** teams live, drawn as Pixar-style cartoon people.
+The **Evercrestcorp Compliance Hub** and the Content Studio are open nipa huts; on the beach there is a coffee bar beside
+the Hub, a dance floor, a volleyball court and loungers. When someone has work they walk to their desk; when they don't,
+they grab a coffee, play volleyball, dance or relax on a lounger, and chat with the others.
+
+**The team**
+- **Pablo, Doc Reader:** first on every case. Takes uploads and KYC/KYB forms, opens the Drive folder, reads every
+  file, ticks the ✅/❌ checklist, and pulls out the business details, directors and shareholders.
+- **Bailey, Reg Checker:** sanctions screening (OFAC, UN, EU, UK), Data Privacy Act (RA 10173) and contract checks,
+  website checks (domain age, SSL, red flags, privacy page).
+- **Charlie, Risk Scout:** gives the result (STOP, REJECT, ESCALATE, PENDING, EDD, INCOMPLETE, CLEAR*) and writes the
+  HTML and Word report, saved to Drive as `dd.mm.yy_Merchant name`.
+- **Hazel, Bot Manager:** helps everyone and sends the alerts (e.g. sanctions TRUE MATCH → MLRO, no tip-off).
+- **Content team:** Video Editor, Caption Writer, Scheduler and Poster.
 
 ## Run it
 Open `bot-office/index.html` in a browser. No install and no build step.
@@ -51,8 +63,8 @@ ollama.com/settings/keys or run `ollama signin`) or **Ollama Local** (models on 
 JSON and anything malformed falls back to the templates. **Test AI provider** lists the models it can see.
 
 ## 🎵 Fun stuff
-Bots speak English and tell jokes in the lounge, raid the fridge and snack shelf, play arcade and billiards, and nap on the
-sofa. 🎵 toggles an optional lo-fi background loop (synthesized in the browser, no audio files); 🔊 mutes everything.
+The team speaks English and tells jokes, gets coffee and cookies at the coffee bar, plays beach volleyball (the ball
+flies over the net), dances under the party lights, and relaxes on the loungers. 🎵 toggles an optional lo-fi background loop (synthesized in the browser, no audio files); 🔊 mutes everything.
 
 ## 📱 Gamitin sa phone (same Wi-Fi)
 1. Sa Mac: ⚙️ → **📱 Phone access** → maglagay ng PIN (4-8 numero) → **I-on**. May lalabas na QR code at address.
@@ -162,6 +174,6 @@ The server listens on the network so a phone can connect, but only the Mac gets 
 If the shop blocks the link, the product name is taken from the URL itself and your photos/notes are used.
 
 ## Swapping in real pixel art
-All art is drawn in `office.js` with canvas shapes. The bots are cartoon kids (`LOOKS` sets each one's hair, skin, outfit and accessory), and the furniture is `drawFurniture` / `drawWalls`.
+All art is drawn in `office.js` with canvas shapes. The team are Pixar-style cartoon people (`LOOKS` sets each one's hair, skin, eyes, outfit and accessories; `person()` draws them), the beach and huts are `drawGround` / `drawHutWalls` / `drawRoof`, and the furniture is `drawFurniture`.
 If you buy an isometric pixel-art pack, replace those functions with `ctx.drawImage(...)` calls.
 The positions, pathfinding and animations stay the same.
