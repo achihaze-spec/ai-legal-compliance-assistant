@@ -7,7 +7,7 @@
 
   // ───────────────────────── Isometric helpers ─────────────────────────
   const TW = 64, TH = 32;              // tile width / height in px
-  const W = 24, H = 16;                // grid size (cells)
+  const W = 24, H = 20;                // grid size (cells)
   const iso = (x, y, z = 0) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 - z });
 
   const canvas = document.getElementById('office');
@@ -132,48 +132,52 @@
   })();
 
   // ───────────────────────── Map / zones ─────────────────────────
-  // A beachfront resort: two white villas at the back (Evercrestcorp Compliance Hub on the left, Content Hub
-  // on the right) and the grounds in front: coffee bar, curvy pool with loungers, dance floor, cabana,
-  // volleyball on the sand, palms and bougainvillea, with the sea all around and a pier.
-  const HUT_D = 8;                     // the huts cover y < 8
+  // A two-storey white beachfront villa at the back: Content Hub on the ground floor (y 4-8), Evercrestcorp
+  // Compliance Hub upstairs (y 0-4, with a jacuzzi on the terrace), stairs on the right. Out front: coffee
+  // and snack bars, curvy pool with loungers, dance floor, cabana, volleyball, BBQ station, Sunset Bar, pier.
+  const HUT_D = 8;                     // the building covers y < 8
+  const UP = 4;                        // upstairs covers y < 4
+  const FLOOR2 = 80;                   // height of the upper floor
   const WALL_H = 74;
-  const HUTS = [[0, 10], [11, W]];   // Compliance Hub, Content Hub (x ranges)
-  const zoneOf = (x, y) => (y >= HUT_D ? 'beach' : x >= 10 ? 'content' : 'compliance');
+  const zoneOf = (x, y) => (y >= HUT_D ? 'beach' : y < UP ? 'compliance' : 'content');
+  function floorZ(x, y) {               // walking height: upstairs, the stairs ramp, or the ground
+    if (y < UP) return FLOOR2;
+    if (x >= 23 && y < HUT_D) return Math.max(0, Math.min(FLOOR2, (HUT_D - y) / (HUT_D - UP) * FLOOR2));
+    return 0;
+  }
+  const zOf = (b) => b.z + floorZ(b.x, b.y);
 
-  // Low bamboo railings you can't walk through (with doorways), and the volleyball net.
   const blockedEdges = new Set();
   const edgeKey = (a, b, c, d) => (a < c || (a === c && b < d) ? `${a},${b}|${c},${d}` : `${c},${d}|${a},${b}`);
   const railings = [];
-  for (let x = 0; x < W; x++) if (![4, 5, 10, 15, 16].includes(x)) { blockedEdges.add(edgeKey(x, 7, x, 8)); railings.push({ type: 'railH', x, y: 8 }); }
-  for (let y = 0; y < 8; y++) if (![5, 6].includes(y)) { blockedEdges.add(edgeKey(9, y, 10, y)); railings.push({ type: 'railV', x: 10, y }); }
-  for (let y = 11; y <= 14; y++) blockedEdges.add(edgeKey(20, y, 21, y));   // volleyball net
-  for (let y = 0; y < HUT_D; y++) blockedEdges.add(edgeKey(10, y, 11, y));   // Content Hub's own left wall
+  for (let x = 0; x < W; x++) if (![4, 5, 11, 12, 23].includes(x)) { blockedEdges.add(edgeKey(x, 7, x, 8)); railings.push({ type: 'railH', x, y: 8 }); }
+  for (let x = 0; x < W; x++) if (x !== 23) { blockedEdges.add(edgeKey(x, UP - 1, x, UP)); railings.push({ type: 'glassH', x, y: UP, lvl: 1 }); }
+  for (let y = UP; y < HUT_D; y++) blockedEdges.add(edgeKey(22, y, 23, y));            // stair rail
+  for (let y = 0; y < UP; y++) railings.push({ type: 'glassV', x: W, y, lvl: 1 });
+  for (let y = 11; y <= 14; y++) blockedEdges.add(edgeKey(20, y, 21, y));             // volleyball net
 
-  // Furniture. block:true marks the cells it covers as solid; flat:true is painted on the ground.
+  // Furniture. block:true marks the cells it covers as solid; flat:true is painted on the ground; lvl:1 = upstairs.
   const F = [];
   const add = (o) => (F.push(Object.assign({ block: true, z: 0 }, o)), o);
-  // Compliance Hub
-  add({ type: 'shelf', x: 0.1, y: 0.05, w: 2, d: 0.6, h: 70, books: true });
-  add({ type: 'shelf', x: 2.2, y: 0.05, w: 2, d: 0.6, h: 70, books: true });
-  add({ type: 'docTable', x: 5.4, y: 0.2, w: 2.6, d: 0.9, h: 22 });
-  add({ type: 'cabinet', x: 0.05, y: 5.05, w: 0.7, d: 0.9, h: 40 });
-  add({ type: 'cabinet', x: 0.05, y: 6.05, w: 0.7, d: 0.9, h: 40 });
-  add({ type: 'plant', x: 9.0, y: 0.2, w: 0.7, d: 0.7, h: 14 });
-  add({ type: 'plant', x: 3.1, y: 6.9, w: 0.7, d: 0.7, h: 14 });
-  // Content Hub (its own nipa hut)
-  add({ type: 'reelShelf', x: 11.2, y: 0.05, w: 2.6, d: 0.6, h: 52 });
-  add({ type: 'greenscreen', x: 21.5, y: 0.05, w: 2.4, d: 0.2, h: 80 });
-  add({ type: 'camera', x: 22.25, y: 3.25, w: 0.5, d: 0.5, h: 40 });
-  add({ type: 'ringlight', x: 23.2, y: 2.3, w: 0.4, d: 0.4, h: 52 });
-  add({ type: 'plant', x: 23.1, y: 6.2, w: 0.7, d: 0.7, h: 14 });
-  add({ type: 'plant', x: 11.15, y: 6.9, w: 0.7, d: 0.7, h: 14 });
-  // Resort grounds: coffee bar beside the Compliance Hub, curvy pool with loungers, dance floor, cabana,
-  // volleyball on the sand, palms and bougainvillea.
+  // Upstairs: Evercrestcorp Compliance Hub
+  add({ type: 'shelf', x: 15.0, y: 0.05, w: 2, d: 0.6, h: 70, books: true, lvl: 1 });
+  add({ type: 'shelf', x: 17.1, y: 0.05, w: 1.6, d: 0.6, h: 70, books: true, lvl: 1 });
+  add({ type: 'docTable', x: 0.2, y: 0.15, w: 0.8, d: 2.2, h: 22, lvl: 1 });
+  add({ type: 'jacuzzi', x: 19.2, y: 0.35, w: 3.2, d: 2.3, h: 14, lvl: 1 });
+  add({ type: 'plant', x: 14.1, y: 0.2, w: 0.7, d: 0.7, h: 14, lvl: 1 });
+  add({ type: 'plant', x: 23.1, y: 0.2, w: 0.7, d: 0.7, h: 14, lvl: 1 });
+  // Ground floor: Content Hub
+  add({ type: 'camera', x: 21.25, y: 5.3, w: 0.5, d: 0.5, h: 40 });
+  add({ type: 'ringlight', x: 22.2, y: 4.4, w: 0.4, d: 0.4, h: 52 });
+  add({ type: 'plant', x: 22.1, y: 7.1, w: 0.7, d: 0.7, h: 14 });
+  for (let k = 0; k < 8; k++) add({ type: 'step', x: 23, y: HUT_D - (k + 1) * 0.5, w: 1, d: 0.5, h: (k + 1) * FLOOR2 / 8, block: false });
+  // Grounds
   add({ type: 'pool', x: 3.6, y: 10.4, w: 8.0, d: 3.6, flat: true, block: true });
   add({ type: 'danceFloor', x: 12.4, y: 11.5, w: 3.8, d: 3.9, flat: true, block: false });
   add({ type: 'court', x: 17.2, y: 10.3, w: 6.1, d: 5.3, flat: true, block: false });
   add({ type: 'coffeeBar', x: 0.05, y: 8.9, w: 0.9, d: 3.2, h: 30 });
-  for (const sy of [9.3, 10.3, 11.3]) add({ type: 'stool', x: 1.25, y: sy, w: 0.4, d: 0.4, h: 16, block: false });
+  add({ type: 'snackBar', x: 0.05, y: 12.7, w: 0.9, d: 2.6, h: 30 });
+  for (const sy of [9.3, 10.3, 11.3, 13.1, 14.1]) add({ type: 'stool', x: 1.25, y: sy, w: 0.4, d: 0.4, h: 16, block: false });
   add({ type: 'truss', x: 12.4, y: 11.25, w: 3.8, d: 0.2, h: 84, block: false });
   add({ type: 'speaker', x: 16.35, y: 11.1, w: 0.55, d: 0.55, h: 32 });
   add({ type: 'speaker', x: 16.35, y: 14.9, w: 0.55, d: 0.55, h: 32 });
@@ -181,30 +185,35 @@
   for (const lx of [4.2, 6.0, 7.8, 9.6]) add({ type: 'lounger', x: lx, y: 14.35, w: 0.8, d: 1.5, h: 10 });
   for (const ux of [5.35, 8.95]) add({ type: 'umbrella', x: ux, y: 14.7, w: 0.6, d: 0.6, h: 68, block: false });
   add({ type: 'cabana', x: 21.3, y: 8.4, w: 2.3, d: 1.5, h: 74 });
-  add({ type: 'sandcastle', x: 21.6, y: 15.2, w: 0.8, d: 0.6, h: 12, block: false });
-  for (const [px, py] of [[3.2, 8.2], [6.5, 8.2], [13.4, 8.2], [20.2, 8.2]]) add({ type: 'lantern', x: px, y: py, w: 0.3, d: 0.3, h: 46 });
-  for (const [bx, by, c] of [[2.0, 8.15, '#e8336e'], [8.5, 8.15, '#a46bff'], [12.1, 8.15, '#e8336e'], [11.9, 15.3, '#a46bff'], [0.5, 12.6, '#e8336e']])
+  add({ type: 'grill', x: 3.3, y: 17.2, w: 2.0, d: 0.7, h: 26 });
+  add({ type: 'picnic', x: 6.3, y: 16.9, w: 2.2, d: 1.2, h: 18 });
+  add({ type: 'liquorBar', x: 12.4, y: 16.9, w: 4.2, d: 0.8, h: 32 });
+  for (const sx of [12.9, 13.9, 14.9, 15.9]) add({ type: 'stool', x: sx, y: 18.0, w: 0.4, d: 0.4, h: 16, block: false });
+  add({ type: 'sandcastle', x: 21.6, y: 17.2, w: 0.8, d: 0.6, h: 12, block: false });
+  for (const [px, py] of [[3.2, 8.2], [6.5, 8.2], [13.4, 8.2], [20.2, 8.2], [2.6, 16.6], [17.2, 16.9]]) add({ type: 'lantern', x: px, y: py, w: 0.3, d: 0.3, h: 46 });
+  for (const [bx, by, c] of [[2.0, 8.15, '#e8336e'], [8.5, 8.15, '#a46bff'], [14.2, 8.15, '#e8336e'], [11.9, 15.3, '#a46bff'], [0.5, 15.9, '#e8336e'], [9.4, 18.6, '#a46bff']])
     add({ type: 'bush', x: bx, y: by, w: 0.7, d: 0.6, h: 16, col: c, block: false });
-  for (const [px, py, s] of [[0.3, 14.6, 1.1], [2.3, 15.3, 0.9], [11.0, 15.3, 0.95], [23.5, 15.5, 1.1], [11.5, 9.3, 0.9]])
+  for (const [px, py, s] of [[0.3, 18.6, 1.1], [2.3, 19.3, 0.9], [10.8, 19.2, 0.95], [23.5, 19.4, 1.1], [11.5, 9.3, 0.9], [19.0, 18.9, 1.0], [23.4, 16.2, 0.85]])
     add({ type: 'palm', x: px, y: py, w: 0.6, d: 0.6, h: 110 * s, s });
 
   // Desks double as each bot's workstation. seat = cell the bot sits in.
   const desks = {};
   function addDesk(id, x, y, opts = {}) {
-    const d = add({ type: 'desk', x: x + 0.15, y: y + 0.1, w: 1.7, d: 0.8, h: 22, dual: opts.dual, zone: opts.zone, owner: id });
-    add({ type: 'chair', x: x + 0.65, y: y + 1.15, w: 0.6, d: 0.6, h: 10, block: false, owner: id });
+    const lvl = y < UP ? 1 : 0;
+    const d = add({ type: 'desk', x: x + 0.15, y: y + 0.1, w: 1.7, d: 0.8, h: 22, dual: opts.dual, zone: opts.zone, owner: id, lvl });
+    add({ type: 'chair', x: x + 0.65, y: y + 1.15, w: 0.6, d: 0.6, h: 10, block: false, owner: id, lvl });
     desks[id] = { desk: d, seat: { x: x + 0.95, y: y + 1.45 } };
   }
-  addDesk('doc', 1, 3, { zone: 'compliance' });
-  addDesk('reg', 4, 3, { zone: 'compliance' });
-  addDesk('risk', 7, 3, { zone: 'compliance' });
-  addDesk('mgr', 6, 5, { zone: 'manager' });
-  addDesk('jp', 12, 2, { dual: true, zone: 'content' });
-  addDesk('ashley', 15, 2, { zone: 'content' });
-  addDesk('david', 18, 2, { zone: 'content' });
-  addDesk('shane', 12, 5, { zone: 'content' });
-  addDesk('jacob', 15, 5, { zone: 'content' });
-  addDesk('asher', 19, 5, { dual: true, zone: 'content' });
+  addDesk('doc', 1.4, 0.9, { zone: 'compliance' });
+  addDesk('reg', 4.9, 0.9, { zone: 'compliance' });
+  addDesk('risk', 8.4, 0.9, { zone: 'compliance' });
+  addDesk('mgr', 11.9, 0.9, { zone: 'manager' });
+  addDesk('jp', 0.8, 4.6, { dual: true, zone: 'content' });
+  addDesk('ashley', 4.3, 4.6, { zone: 'content' });
+  addDesk('david', 7.8, 4.6, { zone: 'content' });
+  addDesk('shane', 11.3, 4.6, { zone: 'content' });
+  addDesk('jacob', 14.8, 4.6, { zone: 'content' });
+  addDesk('asher', 18.3, 4.6, { dual: true, zone: 'content' });
 
   // Mikay and Taks don't have desks: their "home" is the flower arch photo spot on the beach
   add({ type: 'museArch', x: 17.4, y: 8.35, w: 1.8, d: 0.3, h: 64, block: false });
@@ -218,9 +227,10 @@
         if (cx >= 0 && cy >= 0 && cx < W && cy < H) solid[cx][cy] = true;
   }
 
-  // Places bots hang out when idle. z = how high they sit/stand.
+  // Places the team hangs out when idle. z = how high they sit/stand (on top of the floor they're on).
   const spots = [
     { x: 1.45, y: 9.5, z: 0, n: 'coffee' }, { x: 1.45, y: 10.5, z: 0, n: 'coffee' }, { x: 1.45, y: 11.5, z: 0, n: 'coffee' },
+    { x: 1.45, y: 13.3, z: 0, n: 'snack' }, { x: 1.45, y: 14.3, z: 0, n: 'snack' },
     { x: 13.0, y: 12.4, z: 2, n: 'dance' }, { x: 14.4, y: 12.2, z: 2, n: 'dance' }, { x: 15.6, y: 12.7, z: 2, n: 'dance' },
     { x: 13.4, y: 14.0, z: 2, n: 'dance' }, { x: 14.9, y: 14.5, z: 2, n: 'dance' },
     { x: 18.3, y: 11.8, z: 0, n: 'volley' }, { x: 18.2, y: 14.0, z: 0, n: 'volley' },
@@ -228,8 +238,11 @@
     { x: 4.6, y: 15.2, z: 9, n: 'lounger' }, { x: 6.4, y: 15.2, z: 9, n: 'lounger' }, { x: 8.2, y: 15.2, z: 9, n: 'lounger' }, { x: 10.0, y: 15.2, z: 9, n: 'lounger' },
     { x: 22.0, y: 9.3, z: 12, n: 'lounger' }, { x: 23.0, y: 9.3, z: 12, n: 'lounger' },
     { x: 5.5, y: 10.75, z: -16, n: 'swim' }, { x: 8.4, y: 10.8, z: -16, n: 'swim' }, { x: 11.2, y: 12.6, z: -16, n: 'swim' },
+    { x: 20.0, y: 2.3, z: -10, n: 'jacuzzi' }, { x: 21.2, y: 2.4, z: -10, n: 'jacuzzi' }, { x: 22.1, y: 1.6, z: -10, n: 'jacuzzi' },
+    { x: 4.3, y: 18.3, z: 0, n: 'bbq' }, { x: 6.8, y: 18.6, z: 0, n: 'picnic' }, { x: 8.0, y: 18.6, z: 0, n: 'picnic' },
+    { x: 13.1, y: 18.4, z: 0, n: 'drinks' }, { x: 14.1, y: 18.4, z: 0, n: 'drinks' }, { x: 15.1, y: 18.4, z: 0, n: 'drinks' }, { x: 16.1, y: 18.4, z: 0, n: 'drinks' },
     { x: 17.9, y: 9.3, z: 0, n: 'muse' }, { x: 18.8, y: 9.5, z: 0, n: 'muse' },
-    { x: 12.6, y: 9.4, z: 0, n: 'wander' }, { x: 2.4, y: 13.8, z: 0, n: 'wander' }, { x: 19.6, y: 15.5, z: 0, n: 'wander' },
+    { x: 12.6, y: 9.4, z: 0, n: 'wander' }, { x: 2.4, y: 16.0, z: 0, n: 'wander' }, { x: 19.6, y: 16.5, z: 0, n: 'wander' },
   ];
 
   // ───────────────────────── Pathfinding (A*) ─────────────────────────
@@ -305,6 +318,11 @@
     eat: ['Kape muna ☕', 'Iced latte 🧊', 'One more cookie 🍪', 'Barista knows my order', 'Caffeine = compliance', 'Ensaymada break 🥐'],
     play: ['Spike! 🏐', 'Nice dig!', 'Mine! Mine!', 'Point for us!', 'Set it up!', 'Sand in my shoes 😂', 'Rematch?'],
     dance: ['Let\'s dance! 💃', 'Watch this move 🕺', 'This is my song! 🎶', 'Budots time 😂', 'Cha-cha slide!', 'Turn it up! 🔊'],
+    snack: ['Fries for the team 🍟', 'Hotdog on a stick 🌭', 'Popcorn break 🍿', 'Snack attack!', 'One donut won\'t hurt 🍩'],
+    picnic: ['This BBQ is 🔥', 'Pass the rice!', 'Liempo heaven 🍖', 'Inihaw na mais 🌽', 'Busog na busog 😋'],
+    drinks: ['Cheers! 🥂', 'One mojito, please 🍹', 'Sunset cocktails 🌅', 'Happy hour na!', 'Shaken, not stirred 🍸', 'Tagay! 🍺'],
+    grill: ['Who wants barbecue? 🍖', 'Flipping the liempo!', 'Smells amazing 🔥', 'Two more minutes!', 'Grill master on duty 👨‍🍳'],
+    jacuzzi: ['Hot tub with a view 🛁', 'Bubbles! 🫧', 'Best seat in the office', 'Compliance… but make it relaxing 😌'],
     swim: ['The water is perfect! 🏊', 'Pool day! 💦', 'Cannonball! 💥', 'Floating my worries away', 'Splash! 🌊', 'Five more laps'],
     relax: ['Ahh, sea breeze 😌', 'Five more minutes 😴', 'Coconut break 🥥', 'Sunset mode 🌅', 'Don\'t wake me 😎'],
     mikay: ['Ganda lang ako dito 💅', 'Selfie muna 📸', 'Hydrate, babes ✨', 'Golden hour = my hour 🌅', 'Pose ulit! 💃',
@@ -318,8 +336,8 @@
       ['Why is the risk report so calm?', 'It manages expectations'], ['Knock knock', 'Who\'s there? …Compliance. Sign here.']],
   };
 
-  const ACTIVITY = { coffee: 'eat', volley: 'play', dance: 'dance', lounger: 'relax', swim: 'swim' };
-  const FOODS = { coffee: ['☕', '🧋', '🥤', '🍪', '🥐'] };
+  const ACTIVITY = { coffee: 'eat', snack: 'eat', picnic: 'eat', drinks: 'eat', bbq: 'grill', volley: 'play', dance: 'dance', lounger: 'relax', swim: 'swim', jacuzzi: 'swim' };
+  const FOODS = { coffee: ['☕', '🧋', '🥤', '🍪', '🥐'], snack: ['🍟', '🌭', '🍿', '🍩', '🧁'], picnic: ['🍖', '🌽', '🍗', '🥩'], drinks: ['🍹', '🍸', '🍺', '🥂', '🍷'], bbq: ['🍖', '🍢', '🌭'] };
 
   const bots = BOT_DEFS.map((d, i) => {
     const s = desks[d.id].seat;
@@ -436,7 +454,7 @@
       b.activity = b.spot;
       b.actKind = ACTIVITY[b.spot.n] || 'relax';
       b.food = rand(FOODS[b.spot.n] || ['🍪']);
-      if (Math.random() < 0.8) setTimeout(() => !b.task && b.activity && say(b, rand(LINES[b.actKind])), 600);
+      if (Math.random() < 0.8) setTimeout(() => !b.task && b.activity && say(b, rand(LINES[b.spot && b.spot.n] || LINES[b.actKind])), 600);
     }
     b.idleTimer -= dt;
     if (b.idleTimer <= 0) {
@@ -499,6 +517,10 @@
     ctx.restore();
   }
   function drawFurniture(f) {
+    if (!f.lvl) return drawFurnitureAt(f);
+    ctx.save(); ctx.translate(0, -FLOOR2); drawFurnitureAt(f); ctx.restore();
+  }
+  function drawFurnitureAt(f) {
     const { x, y, w, d, h } = f;
     switch (f.type) {
       case 'shelf':
@@ -723,6 +745,80 @@
         ctx.fillStyle = '#ff4f7b'; ctx.fillText('✨ MUSE SPOT ✨', sp.x, sp.y); ctx.textAlign = 'left';
         break;
       }
+      case 'step': {   // one stair step up to the Compliance Hub
+        box(x, y, w, d, h, 0, '#efe9df', { top: '#b9875a', left: '#e4ddd0', right: '#d6cec0' });
+        break;
+      }
+      case 'glassH': case 'glassV': {   // glass balcony rail with a wood handrail
+        const q = f.type === 'glassH' ? (z1, z2, c) => quadY(y, x, x + 1, z1, z2, c) : (z1, z2, c) => quadX(x, y, y + 1, z1, z2, c);
+        q(0, 20, 'rgba(170,225,240,.35)');
+        if (f.type === 'glassH') line(iso(x, y, 20), iso(x + 1, y, 20), '#9c6a3e', 3); else line(iso(x, y, 20), iso(x, y + 1, 20), '#9c6a3e', 3);
+        break;
+      }
+      case 'jacuzzi': {   // terrace hot tub with bubbles and steam
+        box(x, y, w, d, h, 0, '#e9e3d6', { top: '#f6f2ea', left: '#7a4a2a', right: '#6b4429' });
+        const inset = [iso(x + .25, y + .25, h), iso(x + w - .25, y + .25, h), iso(x + w - .25, y + d - .25, h), iso(x + .25, y + d - .25, h)];
+        poly(inset, '#7fe6ee');
+        for (let k = 0; k < 14; k++) {
+          const u = ((T.t * .8 + k * .37) % 1), px = x + .4 + ((k * 1.37) % (w - .8)), py = y + .4 + ((k * .91) % (d - .8));
+          const p = iso(px, py, h + u * 3); ctx.globalAlpha = 1 - u; circ(p.x, p.y, 1.6 + u * 1.5, '#ffffff'); ctx.globalAlpha = 1;
+        }
+        for (let k = 0; k < 3; k++) {   // steam
+          const u = ((T.t * .25 + k / 3) % 1), p = iso(x + w / 2 + (k - 1) * .7, y + d / 2, h + 10 + u * 40);
+          ctx.globalAlpha = .35 * (1 - u); circ(p.x + Math.sin(T.t + k) * 4, p.y, 6 + u * 8, '#ffffff'); ctx.globalAlpha = 1;
+        }
+        for (const [px, py] of [[x, y], [x + w, y], [x, y + d], [x + w, y + d]]) pole(px, py, 0, 70, '#5a3a22', 3);   // pergola
+        for (let k = 0; k <= 6; k++) line(iso(x - .1, y + k * d / 6, 70), iso(x + w + .1, y + k * d / 6, 70), '#6b4a26', 2.5);
+        break;
+      }
+      case 'snackBar': {
+        box(x, y, w, d, h, 0, '#f4efe6', { top: '#b9875a', right: '#e5ded1' });
+        for (let i = 0; i < 7; i++) quadX(x + w + .001, y + .1 + i * .36, y + .16 + i * .36, 2, h - 4, 'rgba(122,74,34,.55)');
+        box(x + .15, y + .25, .6, .7, 16, h, '#c9302c', { top: '#e04b46' });                        // popcorn machine
+        box(x + .2, y + .3, .5, .6, 10, h + 16, 'rgba(255,255,255,.55)', { top: 'rgba(255,255,255,.6)' });
+        for (let k = 0; k < 6; k++) { const p = iso(x + .3 + (k % 3) * .15, y + .5 + Math.floor(k / 3) * .2, h + 18 + (k % 2) * 3); circ(p.x, p.y, 2, '#fff3c4'); }
+        for (let k = 0; k < 3; k++) box(x + .3, y + 1.2 + k * .4, .3, .3, 7, h, ['#ffd23d', '#ff8a3d', '#e8336e'][k]);   // fries, chips
+        plank('🍟 SNACK BAR', 'x', x + w + .002, y + .3, y + d - .3, 10, 22, 10);
+        pole(x + w + .3, y + d / 2, 0, 92, '#2a2420', 2.5);
+        { const c = iso(x + w + .3, y + d / 2, 98);
+          for (let i = 0; i < 10; i++) { const a1 = i / 10 * Math.PI * 2, a2 = (i + 1) / 10 * Math.PI * 2;
+            ctx.beginPath(); ctx.moveTo(c.x, c.y - 10); ctx.lineTo(c.x + Math.cos(a1) * 54, c.y + Math.sin(a1) * 27 + 6); ctx.lineTo(c.x + Math.cos(a2) * 54, c.y + Math.sin(a2) * 27 + 6); ctx.closePath();
+            ctx.fillStyle = i % 2 ? '#ffffff' : '#ff8a8a'; ctx.fill(); } }
+        break;
+      }
+      case 'grill': {   // BBQ grilling station: prep counter + charcoal grill with smoke
+        box(x, y, w * .45, d, h, 0, '#3a3a44', { top: '#c9ccd6' });
+        box(x + w * .5, y + .05, w * .5, d - .1, h - 4, 0, '#2a2a30', { top: '#1c1c22' });
+        for (let k = 0; k < 6; k++) line(iso(x + w * .52, y + .12 + k * .1, h - 3), iso(x + w * .98, y + .12 + k * .1, h - 3), '#8a8a96', 1);
+        for (const [dx, dy, c] of [[.6, .25, '#b5542b'], [.75, .45, '#9c4423'], [.88, .3, '#c8763a']]) { const p = iso(x + w * dx, y + dy, h - 2); ctx.beginPath(); ctx.ellipse(p.x, p.y, 6, 3, 0, 0, 7); ctx.fillStyle = c; ctx.fill(); }
+        for (let k = 0; k < 4; k++) {
+          const u = ((T.t * .4 + k / 4) % 1), p = iso(x + w * .75, y + d / 2, h + 6 + u * 60);
+          ctx.globalAlpha = .45 * (1 - u); circ(p.x + Math.sin(T.t * 1.3 + k) * 6 * u, p.y, 5 + u * 10, '#d8d8de'); ctx.globalAlpha = 1;
+        }
+        { const p = iso(x + w * .75, y + d / 2, h); ctx.globalAlpha = .35 + .2 * Math.sin(T.t * 8); circ(p.x, p.y, 9, '#ff8a3d'); ctx.globalAlpha = 1; }
+        plank('🔥 BBQ', 'y', y + d + .002, x + .1, x + w * .45 - .1, 8, 20, 10);
+        break;
+      }
+      case 'picnic': {
+        box(x, y - .35, w, .3, 10, 0, '#8a5a33', { top: '#a06c3c' });
+        box(x, y + d + .05, w, .3, 10, 0, '#8a5a33', { top: '#a06c3c' });
+        box(x + .1, y + .1, .15, d - .2, h - 3, 0, '#6b4426'); box(x + w - .25, y + .1, .15, d - .2, h - 3, 0, '#6b4426');
+        box(x, y, w, d, 3, h - 3, '#a06c3c', { top: '#b98048' });
+        for (const [dx, dy, e] of [[.5, .5, '🍖'], [1.1, .6, '🍚'], [1.7, .45, '🌽']]) { const p = iso(x + dx, y + dy, h + 4); ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(e, p.x, p.y); ctx.textAlign = 'left'; }
+        break;
+      }
+      case 'liquorBar': {   // Sunset Bar: back shelf of bottles, wood counter
+        box(x, y - .55, w, .3, 70, 0, '#5a3820', { top: '#6b4429' });
+        for (let r = 0; r < 3; r++) for (let k = 0; k < 14; k++) {
+          const bx = x + .12 + k * (w - .24) / 14, z = 20 + r * 16;
+          quadY(y - .25 + .001, bx, bx + .12, z, z + 10 + (k % 3) * 2, ['#2e8b57', '#c97b2b', '#7a1f2b', '#d9e9f2', '#e8b83a', '#4a2a6b'][(k + r * 2) % 6]);
+        }
+        box(x, y, w, d, h, 0, '#3a2414', { top: '#c08a52', left: '#4a2e18' });
+        for (let k = 0; k < 4; k++) { const p = iso(x + .5 + k * 1.05, y + .4, h + 2); ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(['🍹', '🍸', '🍺', '🥂'][k], p.x, p.y); ctx.textAlign = 'left'; }
+        plank('🍹 SUNSET BAR', 'y', y - .25 + .003, x + 1.0, x + w - 1.0, 74, 88, 11);
+        for (let k = 0; k < 9; k++) { const p = iso(x + .2 + k * (w - .4) / 8, y - .1, 92 + Math.sin(k) * 2); circ(p.x, p.y, 2.4, ['#ffd23d', '#ff6fae', '#2ee6c9'][k % 3]); }
+        break;
+      }
       case 'pool': {   // curvy resort pool: tiled rim, turquoise water, ripples and floats
         const shape = (m, z) => {
           ctx.beginPath();
@@ -864,20 +960,18 @@
     const foam = 2.5 + Math.sin(t * 1.2) * 0.12;
     poly(rect(foam), '#effcff'); poly(rect(2.15), '#e2c389'); poly(rect(1.8), '#f3dcaa');
     for (const s of SPECKS) { const p = iso(s.x, s.y); ctx.fillStyle = ['#e3c48c', '#fff1cf', '#d8b878'][s.c]; ctx.fillRect(p.x, p.y, 2, 1.5); }
-    for (const [a, b, c2, d2] of [[-1.6, 8.0, 0, 16.4], [-1.6, 15.7, 3.4, 17.4]]) poly([iso(a, b), iso(c2, b), iso(c2, d2), iso(a, d2)], '#7cc46b');
+    for (const [a, b, c2, d2] of [[-1.6, 8.0, 0, H + .4], [-1.6, H - .3, 3.4, H + 1.4]]) poly([iso(a, b), iso(c2, b), iso(c2, d2), iso(a, d2)], '#7cc46b');
     const deck = (a, b, c2, d2) => {
       poly([iso(a, b, .5), iso(c2, b, .5), iso(c2, d2, .5), iso(a, d2, .5)], '#ebe5da');
       for (let x = Math.ceil(a); x < c2; x++) line(iso(x, b, .5), iso(x, d2, .5), 'rgba(160,150,135,.35)', 1);
       for (let y = Math.ceil(b); y < d2; y++) line(iso(a, y, .5), iso(c2, y, .5), 'rgba(160,150,135,.35)', 1);
     };
-    deck(0, HUT_D, W, 9.9); deck(2.9, 9.9, 16.9, 16.0);
-    for (const [x0, x1] of HUTS) {
-      for (let x = x0; x < x1; x++) for (let y = 0; y < HUT_D; y++)
-        poly([iso(x, y, 1), iso(x + 1, y, 1), iso(x + 1, y + 1, 1), iso(x, y + 1, 1)], ((x + y) % 2) ? '#e3c9a1' : '#dcc096');
-      for (let x = x0; x < x1; x++) for (let y = 0; y < HUT_D; y++) line(iso(x, y + .5, 1), iso(x + .5, y, 1), 'rgba(150,110,60,.18)', 1);
-      poly([iso(x0, HUT_D, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x0, HUT_D, -4)], '#cfc6b6');
-      poly([iso(x1, 0, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x1, 0, -4)], '#bdb3a2');
-    }
+    deck(0, HUT_D, W, 9.9); deck(2.9, 9.9, 16.9, 16.0); deck(2.9, 16.0, 17.6, 19.2);
+    // ground floor (Content Hub): light oak
+    for (let x = 0; x < W; x++) for (let y = UP; y < HUT_D; y++)
+      poly([iso(x, y, 1), iso(x + 1, y, 1), iso(x + 1, y + 1, 1), iso(x, y + 1, 1)], ((x + y) % 2) ? '#e3c9a1' : '#dcc096');
+    poly([iso(0, HUT_D, 1), iso(W, HUT_D, 1), iso(W, HUT_D, -4), iso(0, HUT_D, -4)], '#cfc6b6');
+    poly([iso(W, UP, 1), iso(W, HUT_D, 1), iso(W, HUT_D, -4), iso(W, UP, -4)], '#bdb3a2');
   }
   function plank(text, plane, p, a1, a2, z1, z2, size = 14) {
     // a wooden sign board on the x = p (plane 'x') or y = p (plane 'y') plane
@@ -896,50 +990,57 @@
     }
   }
   function drawHutWalls() {
-    for (const [x0, x1] of HUTS) {
-      box(x0 - 0.25, -0.25, x1 - x0 + 0.25, 0.25, WALL_H, 0, '#efe9df', { left: '#f6f2ea', top: '#d9d2c5' });
-      const sideH = x0 === 0 ? WALL_H : 26;
-      box(x0 - 0.25, 0, 0.25, HUT_D, sideH, 0, '#efe9df', { right: '#ebe5da', top: '#d9d2c5' });
-      const slat = x0 === 0 ? [9.0, 10] : [22.8, W];
-      quadY(0.001, slat[0], slat[1], 0, WALL_H, '#6b4429');
-      for (let x = slat[0] + .08; x < slat[1]; x += .16) quadY(0.002, x, x + .05, 0, WALL_H, '#4f301b');
-      quadY(0.001, x0, x1, 0, 6, '#d9d2c5');
-    }
-    const win = (plane, p, a, b) => {
-      const q = plane === 'y' ? (a1, a2, z1, z2, c) => quadY(p, a1, a2, z1, z2, c) : (a1, a2, z1, z2, c) => quadX(p, a1, a2, z1, z2, c);
+    // ground-floor side wall + the block under the upper floor (its front face is the Content Hub's back wall)
+    box(-0.25, UP, 0.25, HUT_D - UP, FLOOR2, 0, '#efe9df', { right: '#ebe5da', top: '#d9d2c5' });
+    box(0, 0, W, UP, FLOOR2, 0, '#efe9df', { left: '#f4efe6', right: '#e2dbcd', top: '#e3c9a1' });
+    quadY(UP + .001, 0, W, 0, 6, '#d9d2c5');
+    // upper floor: oak floor on top of the block
+    for (let x = 0; x < W; x++) for (let y = 0; y < UP; y++)
+      poly([iso(x, y, FLOOR2 + .5), iso(x + 1, y, FLOOR2 + .5), iso(x + 1, y + 1, FLOOR2 + .5), iso(x, y + 1, FLOOR2 + .5)], ((x + y) % 2) ? '#e8d2ad' : '#e0c79f');
+    quadY(UP + .002, 0, W, FLOOR2 - 6, FLOOR2, '#cfc6b6');   // slab edge
+    // upper floor walls
+    box(-0.25, -0.25, W + 0.25, 0.25, WALL_H, FLOOR2, '#efe9df', { left: '#f6f2ea', top: '#d9d2c5' });
+    box(-0.25, 0, 0.25, UP, WALL_H, FLOOR2, '#efe9df', { right: '#ebe5da', top: '#d9d2c5' });
+    quadY(0.001, 22.6, W, FLOOR2, FLOOR2 + WALL_H, '#6b4429');
+    for (let x = 22.68; x < W; x += .16) quadY(0.002, x, x + .05, FLOOR2, FLOOR2 + WALL_H, '#4f301b');
+    const win = (plane, p, a, b, z0) => {
+      const q = plane === 'y' ? (a1, a2, z1, z2, c) => quadY(p, a1, a2, z0 + z1, z0 + z2, c) : (a1, a2, z1, z2, c) => quadX(p, a1, a2, z0 + z1, z0 + z2, c);
       q(a, b, 20, 66, '#22201e'); q(a + .07, b - .07, 23, 63, '#9fe2f2'); q(a + .07, b - .07, 23, 34, '#3fb3d6');
       q(a + .07, b - .07, 34, 37, '#f3dcaa');
       for (let k = 1; k < 3; k++) { const m = a + (b - a) * k / 3; q(m - .03, m + .03, 23, 63, '#22201e'); }
     };
-    for (const wx of [5.0, 7.0]) win('y', 0.003, wx, wx + 1.7);
-    win('y', 0.003, 17.8, 19.5);
-    win('x', 0.003, 1.2, 2.9);
-    baskets('x', 0.004, 3.8, 50);
-    baskets('y', 0.004, 20.3, 50);
-    quadY(0.003, 14.5, 17.5, 30, 66, '#fffaf2');   // Ashley's posting calendar
+    for (const wx of [3.0, 6.6, 10.2]) win('y', 0.003, wx, wx + 1.7, FLOOR2);
+    win('x', 0.003, 0.9 + 1.4, 3.6, FLOOR2);
+    baskets('y', 0.004, 13.2, FLOOR2 + 48);
+    // ground floor back wall (front of the block): glass sliding doors, slats, calendar, baskets
+    const gd = (a, b) => { quadY(UP + .003, a, b, 6, 70, '#22201e'); quadY(UP + .004, a + .06, b - .06, 8, 68, '#a9d8e6'); for (let k = 1; k < 4; k++) { const m = a + (b - a) * k / 4; quadY(UP + .005, m - .025, m + .025, 8, 68, '#22201e'); } };
+    gd(2.8, 4.2); gd(9.6, 11.0);
+    quadY(UP + .003, 21.6, 22.8, 0, FLOOR2 - 6, '#6b4429');
+    for (let x = 21.68; x < 22.8; x += .16) quadY(UP + .004, x, x + .05, 0, FLOOR2 - 6, '#4f301b');
+    quadY(UP + .003, 13.4, 16.4, 30, 66, '#fffaf2');   // Ashley's posting calendar
     for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) {
-      const cx = 14.65 + c * .56, z = 61 - r * 10;
-      quadY(0.004, cx, cx + .46, z - 7, z, (r * 5 + c + Math.floor(stats.done / 2)) % 4 === 0 ? ['#ff6fae', '#ffd23d', '#2ee6c9', '#a77bff'][(r + c) % 4] : '#eadfca');
+      const cx = 13.55 + c * .56, z = 61 - r * 10;
+      quadY(UP + .004, cx, cx + .46, z - 7, z, (r * 5 + c + Math.floor(stats.done / 2)) % 4 === 0 ? ['#ff6fae', '#ffd23d', '#2ee6c9', '#a77bff'][(r + c) % 4] : '#eadfca');
     }
+    baskets('y', UP + .004, 18.8, 50);
+    win('x', 0.003, UP + .8, UP + 2.6, 0);
+    plank('📱 CONTENT HUB · 1F', 'y', UP + .006, 5.6, 9.2, 62, 76, 12);
   }
-  const PENDANTS = [[2, 3.6], [5, 3.6], [8, 3.6], [7, 5.6], [13, 2.6], [16, 2.6], [19, 2.6], [13, 5.6], [16, 5.6], [20, 5.6]];
+  const PENDANTS = [[2.3, 1.9], [5.8, 1.9], [9.3, 1.9], [12.8, 1.9]];
   function drawRoof() {
-    const z1 = WALL_H + 30;
-    for (const [a, b] of HUTS) {
-      const bx = b + 0.3;
-      box(a - 0.6, -0.6, bx - a + 0.6, 1.3, 14, z1 - 14, '#f4efe6', { left: '#e9e3d8', top: '#fbf8f2', right: '#ddd6c9' });
-      if (a === 0) box(-0.6, 0.7, 1.3, HUT_D - 0.3, 14, z1 - 14, '#f4efe6', { left: '#e9e3d8', top: '#fbf8f2', right: '#ddd6c9' });
-      for (let x = a + .4; x < b; x += .55) line(iso(x, .7, z1 - 6), iso(x, 2.6, z1 - 6), '#6b4429', 3);
-      line(iso(a + .2, 2.6, z1 - 7), iso(b - .2, 2.6, z1 - 7), '#5a3820', 4);
-    }
+    // flat white roof over the upper floor with a wooden pergola (drawn last so it sits on top)
+    const z1 = FLOOR2 + WALL_H + 30;
+    box(-0.6, -0.6, W + 0.9, 1.3, 14, z1 - 14, '#f4efe6', { left: '#e9e3d8', top: '#fbf8f2', right: '#ddd6c9' });
+    box(-0.6, 0.7, 1.3, UP - 0.3, 14, z1 - 14, '#f4efe6', { left: '#e9e3d8', top: '#fbf8f2', right: '#ddd6c9' });
+    for (let x = .4; x < W; x += .55) line(iso(x, .7, z1 - 6), iso(x, 2.4, z1 - 6), '#6b4429', 3);
+    line(iso(.2, 2.4, z1 - 7), iso(W - .2, 2.4, z1 - 7), '#5a3820', 4);
     for (const [px, py] of PENDANTS) {
-      const top = iso(px, py, z1 - 6), lamp = iso(px, py, 96);
+      const top = iso(px, py, z1 - 6), lamp = iso(px, py, FLOOR2 + 92);
       line(top, lamp, 'rgba(40,30,20,.6)', 1);
       ctx.beginPath(); ctx.moveTo(lamp.x - 7, lamp.y + 6); ctx.lineTo(lamp.x - 3, lamp.y); ctx.lineTo(lamp.x + 3, lamp.y); ctx.lineTo(lamp.x + 7, lamp.y + 6); ctx.closePath();
       ctx.fillStyle = '#c99a5f'; ctx.fill(); ctx.strokeStyle = '#9c7038'; ctx.lineWidth = 1; ctx.stroke();
     }
-    plank('🌺 EVERCRESTCORP COMPLIANCE HUB', 'y', 0.7, 1.2, 9.2, z1 - 13, z1 + 3, 15);
-    plank('📱 CONTENT HUB', 'y', 0.7, 14.6, 19.6, z1 - 13, z1 + 3, 15);
+    plank('🌺 EVERCRESTCORP COMPLIANCE HUB · 2F', 'y', 0.7, 1.2, 11.0, z1 - 13, z1 + 3, 15);
   }
   function drawNight(t) {
     const N = nightness();
@@ -955,8 +1056,14 @@
       if (f.type === 'truss') glow(iso(f.x + f.w / 2, f.y + 2, 10), 140, 'rgba(255,90,200,A)', .4);
       if (f.type === 'cabana') glow(iso(f.x + f.w / 2, f.y + f.d / 2, 40), 80, 'rgba(255,220,160,A)', .45);
     }
-    for (const [px, py] of PENDANTS) glow(iso(px, py, 92), 70, 'rgba(255,205,130,A)', .6);
-    for (const [wx, wy] of [[5.85, 0], [7.85, 0], [18.65, 0]]) glow(iso(wx, wy + .3, 45), 70, 'rgba(255,214,150,A)', .35);
+    for (const [px, py] of PENDANTS) glow(iso(px, py, FLOOR2 + 88), 70, 'rgba(255,205,130,A)', .6);
+    for (const [wx, wy, wz] of [[3.85, 0, FLOOR2 + 45], [7.45, 0, FLOOR2 + 45], [11.05, 0, FLOOR2 + 45], [3.5, UP, 40], [10.3, UP, 40]]) glow(iso(wx, wy + .3, wz), 70, 'rgba(255,214,150,A)', .4);
+    for (const f of F) {
+      if (f.type === 'jacuzzi') glow(iso(f.x + f.w / 2, f.y + f.d / 2, FLOOR2 + 14), 110, 'rgba(90,240,240,A)', .55);
+      if (f.type === 'liquorBar') glow(iso(f.x + f.w / 2, f.y, 40), 120, 'rgba(255,170,90,A)', .55);
+      if (f.type === 'grill') glow(iso(f.x + f.w * .75, f.y + .3, 26), 70, 'rgba(255,120,40,A)', .7);
+      if (f.type === 'snackBar') glow(iso(f.x + 1, f.y + 1.2, 40), 80, 'rgba(255,190,110,A)', .45);
+    }
     ctx.restore();
   }
 
@@ -1183,7 +1290,7 @@
     if (b.path.length) return 'walk';
     const s = desks[b.id] && desks[b.id].seat;
     if (b.team !== 'muse' && (b.state === 'working' || (s && Math.hypot(b.x - s.x, b.y - s.y) < 0.05))) return 'sit';
-    if (b.activity && b.activity === b.spot && !b.task) return { eat: 'eat', play: 'volley', dance: 'dance', relax: 'lounge', swim: 'swim' }[b.actKind] || 'stand';
+    if (b.activity && b.activity === b.spot && !b.task) return { eat: 'eat', grill: 'eat', play: 'volley', dance: 'dance', relax: 'lounge', swim: 'swim' }[b.actKind] || 'stand';
     if (b.bubble && b.bubble.until > now() && b.waveUntil > now()) return 'wave';
     if (b.team === 'muse') return 'muse';
     return 'stand';
@@ -1191,34 +1298,34 @@
 
   function drawBot(b, t) {
     const L = LOOKS[b.id];
-    const g = iso(b.x, b.y, 0);
+    const g = iso(b.x, b.y, floorZ(b.x, b.y));
     const dim = filter !== 'all' && b.team !== filter && b.team !== 'manager' && b.team !== 'muse';
     ctx.globalAlpha = dim ? 0.3 : 1;
     const pose = poseOf(b);
     let lift = 0;
     if (pose === 'dance') lift = Math.abs(Math.sin(t * 7 + b.phase)) * 4;
     if (pose === 'volley') { lift = b._hit ? 7 : 0; }
-    const sh = Math.max(0.6, 1 - (b.z + lift) / 40);
+    const sh = Math.max(0.6, 1 - (zOf(b) + lift) / 40);
     ctx.beginPath(); ctx.ellipse(g.x, g.y, 12 * sh * L.scale, 5.5 * sh * L.scale, 0, 0, 7); ctx.fillStyle = 'rgba(60,40,10,.25)'; ctx.fill();
     if (b === selected || b === hoverBot) {
       ctx.beginPath(); ctx.ellipse(g.x, g.y, 17, 8, 0, 0, 7); ctx.strokeStyle = b.color; ctx.lineWidth = 2.5;
       ctx.shadowColor = b.color; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
     }
     ctx.save();
-    ctx.translate(g.x, g.y - b.z - lift);
+    ctx.translate(g.x, g.y - zOf(b) - lift);
     ctx.scale((b.face || 1) * L.scale, L.scale);
     if (pose === 'lounge') { ctx.rotate(-0.55); ctx.translate(-4, 6); }
     if (pose === 'swim') { ctx.beginPath(); ctx.rect(-40, -120, 80, 100); ctx.clip(); }   // only head and shoulders above the water
     person(L, b, t, pose === 'swim' ? 'wave' : pose);
     ctx.restore();
     if (pose === 'swim') {
-      const w = iso(b.x, b.y, b.z + 20 * L.scale);
+      const w = iso(b.x, b.y, zOf(b) + 20 * L.scale);
       ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.6;
       for (let k = 0; k < 2; k++) { const r = 10 + ((t * 8 + k * 6 + b.phase * 3) % 12); ctx.globalAlpha = 1 - r / 24; ctx.beginPath(); ctx.ellipse(w.x, w.y, r * 1.4, r * 0.6, 0, 0, 7); ctx.stroke(); }
       ctx.globalAlpha = 1;
     }
     if (b.state === 'working' && Math.floor(t * 3 + b.phase) % 3 === 0) {
-      const p = iso(b.x + .3, b.y - .3, b.z + 62); ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText('✦', p.x, p.y);
+      const p = iso(b.x + .3, b.y - .3, zOf(b) + 62); ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText('✦', p.x, p.y);
     }
     ctx.globalAlpha = 1;
   }
@@ -1227,20 +1334,20 @@
     if (b.team === 'muse' && !b.path.length) {   // ✨ the muse glow
       const L = LOOKS[b.id];
       for (let i = 0; i < 3; i++) {
-        const u = (t * 0.6 + i / 3 + b.phase) % 1, p = iso(b.x, b.y, b.z + (20 + u * 55) * L.scale);
+        const u = (t * 0.6 + i / 3 + b.phase) % 1, p = iso(b.x, b.y, zOf(b) + (20 + u * 55) * L.scale);
         ctx.globalAlpha = Math.sin(u * Math.PI); ctx.fillStyle = b.id === 'mikay' ? '#ffd6ec' : '#fff3b0';
         ctx.font = `${10 + i * 2}px sans-serif`; ctx.fillText(b.id === 'mikay' ? '✨' : (i === 1 ? '💪' : '✦'), p.x + (i - 1) * 16 * L.scale, p.y);
       }
       ctx.globalAlpha = 1;
     }
     if (!b.activity || b.activity !== b.spot || b.path.length || b.task) return;
-    const L = LOOKS[b.id], f = b.face || 1, p = iso(b.x, b.y, b.z + 30 * L.scale);
+    const L = LOOKS[b.id], f = b.face || 1, p = iso(b.x, b.y, zOf(b) + 30 * L.scale);
     ctx.font = '14px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
     ctx.textAlign = 'center';
-    if (b.actKind === 'eat') {
+    if (b.actKind === 'eat' || b.actKind === 'grill') {
       const bite = (Math.sin(t * 3 + b.phase) + 1) / 2;
       ctx.fillText(b.food, p.x + f * (15 - bite * 5) * L.scale, p.y - 2 - bite * 10);
-      if (bite > 0.95) { const s = iso(b.x, b.y, b.z + 58 * L.scale); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = '9px sans-serif'; ctx.fillText('~', s.x + f * 14, s.y); }
+      if (bite > 0.95) { const s = iso(b.x, b.y, zOf(b) + 58 * L.scale); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = '9px sans-serif'; ctx.fillText('~', s.x + f * 14, s.y); }
     } else if (b.actKind === 'dance') {
       for (let i = 0; i < 2; i++) {
         const u = ((t * 0.7 + i * 0.5 + b.phase) % 1);
@@ -1256,7 +1363,7 @@
 
   function drawOverlay(b, t) {
     drawActivity(b, t);
-    const top = iso(b.x, b.y, b.z + 72 * LOOKS[b.id].scale);
+    const top = iso(b.x, b.y, zOf(b) + 72 * LOOKS[b.id].scale);
     if (b.bubble && b.bubble.until > t) drawBubble(top.x, top.y - 6, b.bubble.text);
     else b.bubble = null;
     if (b === hoverBot || b === selected) {
@@ -1266,7 +1373,7 @@
       ctx.fillStyle = b.color; ctx.textAlign = 'center'; ctx.fillText(b.label, p.x, p.y + 22); ctx.textAlign = 'left';
     }
     if (b.task && b.state === 'working') {
-      const p = iso(b.x, b.y, b.z + 66 * LOOKS[b.id].scale);
+      const p = iso(b.x, b.y, zOf(b) + 66 * LOOKS[b.id].scale);
       roundRect(p.x - 16, p.y - 4, 32, 5, 2.5, 'rgba(15,12,30,.8)');
       roundRect(p.x - 15, p.y - 3, 30 * Math.min(1, b.task.progress), 3, 1.5, '#3ddc84');
     }
@@ -1421,7 +1528,7 @@
   function botAt(sx, sy) {
     const w = toWorld(sx, sy);
     let best = null, bd = 26;
-    for (const b of bots) { const p = iso(b.x, b.y, b.z + 24), dd = Math.hypot(p.x - w.x, p.y - w.y); if (dd < bd) { bd = dd; best = b; } }
+    for (const b of bots) { const p = iso(b.x, b.y, zOf(b) + 24), dd = Math.hypot(p.x - w.x, p.y - w.y); if (dd < bd) { bd = dd; best = b; } }
     return best;
   }
   let drag = null;
