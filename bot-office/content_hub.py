@@ -298,6 +298,14 @@ def claude_prompt(p: dict) -> str:
 
 # ───────────────────────── page ─────────────────────────
 
+def pack_html(v: dict) -> str:
+    if not v.get("prompt_pack"):
+        return ""
+    import prompt_library
+    return ("<details><summary><b>🎬 Prompt Pack para sa next video ng produktong ito</b> (picked by Asher)</summary>"
+            + prompt_library.render_pack(v["prompt_pack"], v["name"]) + "</details>")
+
+
 def render_batch(bid: str, posts: list[dict], videos: list[dict]) -> str:
     e = html.escape
     rows = []
@@ -330,7 +338,9 @@ def render_batch(bid: str, posts: list[dict], videos: list[dict]) -> str:
         rows.append(f"""<section class="video"><div class="left"><video src="/outbox/{v['job']}/{e(v['media'])}" controls playsinline></video>
 <a class="btn" href="/outbox/{v['job']}/{e(v['media'])}" download="{e(v['file_name'])}">⬇ Download video</a></div>
 <div class="right"><h2>🎬 {e(v['name'])}</h2>
-<h4>JP · review of the edit</h4><ul>{review}</ul><h4>Asher · link check</h4><ul>{links}</ul>{''.join(cards)}</div></section>""")
+<h4>JP · review of the edit</h4><ul>{review}</ul><h4>Asher · link check</h4><ul>{links}</ul>{''.join(cards)}{pack_html(v)}</div></section>""")
+    import prompt_library
+    pcss, cjs = prompt_library.PACK_CSS, prompt_library.COPY_JS
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Content Hub batch</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{{font:15px/1.5 system-ui,sans-serif;background:#0b2a3a;color:#eafaff;margin:0;padding:22px}}
@@ -340,12 +350,13 @@ h1{{margin:0 0 4px}} .muted{{color:#9cc7d6;font-size:13px}} .video{{display:flex
 pre{{white-space:pre-wrap;background:#06202c;border-radius:8px;padding:10px;font:inherit;font-size:14px}}
 .badge{{color:#10202a;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800}} .err{{color:#ff8a8a}}
 button,a.btn{{background:#ffd23d;color:#2a1a00;border:0;border-radius:8px;padding:7px 11px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;margin:4px 4px 0 0;font-size:13px}}
-a{{color:#7fe3ff}}</style></head><body><h1>📱 Content Hub · batch {e(bid)}</h1>
+a{{color:#7fe3ff}}</style><style>{pcss}</style></head><body><h1>📱 Content Hub · batch {e(bid)}</h1>
 <p class="muted">JP edits · Asher writes the SEO captions and checks the links · Shane (TikTok + basket) · Jacob (Shopee link on Facebook / Instagram) ·
 Ashley schedules · David posts. Facebook and Instagram post by themselves when the Meta connection is set in ⚙️; TikTok posts are handed to Claude in Chrome
 (TikTok has no public API for product links). Reload to see the latest status.</p>
 {''.join(rows)}
 <script>function copy(b,t){{navigator.clipboard.writeText(t);b.textContent='Copied ✅'}}
+{cjs}
 async function act(id,a){{const r=await fetch('/api/content/post/'+id+'/'+a,{{method:'POST'}});const j=await r.json();alert(j.message||'OK');location.reload()}}</script>
 </body></html>"""
 

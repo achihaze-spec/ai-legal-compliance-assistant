@@ -34,6 +34,7 @@ import compliance
 import kyc
 import kyb_docs
 import content_hub
+import prompt_library
 import outputs
 import content
 
@@ -453,7 +454,12 @@ def run_affiliate_plan(req: dict) -> None:
     if req.get("model"):
         job_notes.append("AI model sa video: dapat AI-generated persona mo ito o ikaw mismo, hindi totoong tao na walang pahintulot. "
                          "Gumamit ng totoong product photos para sa close-up ng detalye; puwedeng iba ang fit na gawa ng AI.")
-    job = {"id": jid, "product": {k: prod[k] for k in ("url", "name", "description", "category")}, "owns": owns, "model": req.get("model"),
+    m = req.get("model") or {}
+    pk = prompt_library.pack(prod["name"] or "the product", f"{req['notes']} {prod['description'][:300]}", has_model=bool(m),
+                             model_name=m.get("name", ""), setting=m.get("setting", ""),
+                             script=videos[0].get("hook", "") if videos else "")
+    emit(bot="asher", type="log", text=f"🎬 Prompt Pack for {prod['name'] or 'the product'}: {len(pk['items'])} prompts ({pk['subtype']})")
+    job = {"id": jid, "prompt_pack": pk, "product": {k: prod[k] for k in ("url", "name", "description", "category")}, "owns": owns, "model": req.get("model"),
            "author": author, "lock": lock, "seller": [str(p) for p in seller], "videos": videos, "notes": job_notes}
     _save_job(job)
     emit(bot="post", type="task", task=f"{jid}-post", text="Package affiliate videos", secs=MIN_STEP_SECS["post"])
@@ -818,7 +824,9 @@ def run_content_batch(job: dict) -> None:
             time.sleep(MIN_STEP_SECS["jacob"])
             emit(bot="jacob", type="done", task=f"{vid}-jacob",
                  text=f"{name}: " + ("🛒 Shopee link in the Facebook caption + Instagram first comment" if shopee else "captions ready (no Shopee link)"))
-        videos.append({"id": vid, "job": vid, "name": name, "file_name": file_name, "media": media["media"], "review": review, "links": links})
+        pk = prompt_library.pack(product or (it["notes"].split(",")[0].strip()[:80] if it["notes"] else content._topic(name)), it["notes"], script=cap["hook"])
+        videos.append({"id": vid, "job": vid, "name": name, "file_name": file_name, "media": media["media"], "review": review, "links": links,
+                       "prompt_pack": pk})
     if not videos:
         return
     # Ashley: one slot per video, shared by its platforms
@@ -843,6 +851,11 @@ def run_content_batch(job: dict) -> None:
     emit(bot="ashley", type="done", task=f"{bid}-ashley", url=f"/content/{bid}",
          text=f"{len(videos)} video(s) scheduled from {content.fmt_slot(first)} ({', '.join(content_hub.PLATFORMS[p] for p in plats)})")
     emit(bot="david", type="log", text=f"Got it: {len(posts)} post(s) queued. FB/IG post by themselves when Meta is connected; TikTok goes to Claude.")
+
+
+@app.get("/prompts", response_class=HTMLResponse)
+def prompts_page():
+    return HTMLResponse(prompt_library.render_library())
 
 
 @app.get("/content/{bid}", response_class=HTMLResponse)

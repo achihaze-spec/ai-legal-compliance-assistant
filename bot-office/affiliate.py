@@ -743,6 +743,13 @@ def model_visuals(v: dict, model: dict, fashion: bool) -> None:
 
 # ───────────────────────── result page ─────────────────────────
 
+def _pack_html(job: dict) -> str:
+    if not job.get("prompt_pack"):
+        return ""
+    import prompt_library
+    return f"<style>{prompt_library.PACK_CSS}</style>" + prompt_library.render_pack(job["prompt_pack"], job["product"].get("name", ""))
+
+
 def render_page(job: dict) -> str:
     e = html.escape
     p = job["product"]
@@ -817,7 +824,7 @@ figure.empty div{{width:96px;aspect-ratio:9/16;border:1px dashed #3a3270;border-
 figcaption{{font-size:11px;color:#9c96c9}} .mini{{padding:1px 5px;font-size:11px}} .busy{{color:#ffd23d}} .err{{color:#ff8a8a}} form.final{{display:flex;gap:10px;flex-wrap:wrap;align-items:center}}</style></head><body><div class="wrap">
 <div class="head"><h1>🛒 {e(p['name'] or 'Product')}</h1><div class="muted">{e(p['url'])} · scripts by {e(job['author'])} ·
 {'hawak mo ang product' if job['owns'] else 'hindi pa hawak (walang first-person claims)'}</div><ul>{notes}</ul></div>
-{auto_head}{model_box}{''.join(cards)}
+{auto_head}{model_box}{''.join(cards)}{_pack_html(job)}
 <p class="muted">Automated policy screening batay sa TikTok Shop at Shopee content rules (originality, claims, disclosure). Nagbabago ang rules,
 kaya i-double check sa Affiliate Center bago mag-post.</p></div>
 <script>
