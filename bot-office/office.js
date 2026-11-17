@@ -132,9 +132,9 @@
   })();
 
   // ───────────────────────── Map / zones ─────────────────────────
-  // A beach resort: two open nipa huts at the back (Evercrestcorp Compliance Hub on the left,
-  // Content Studio on the right) and the beach in front: coffee bar beside the Hub, dance floor,
-  // volleyball court, loungers and palm trees, with the sea all around.
+  // A beachfront resort: two white villas at the back (Evercrestcorp Compliance Hub on the left, Content Hub
+  // on the right) and the grounds in front: coffee bar, curvy pool with loungers, dance floor, cabana,
+  // volleyball on the sand, palms and bougainvillea, with the sea all around and a pier.
   const HUT_D = 8;                     // the huts cover y < 8
   const WALL_H = 74;
   const HUTS = [[0, 10], [11, W]];   // Compliance Hub, Content Hub (x ranges)
@@ -146,7 +146,7 @@
   const railings = [];
   for (let x = 0; x < W; x++) if (![4, 5, 10, 15, 16].includes(x)) { blockedEdges.add(edgeKey(x, 7, x, 8)); railings.push({ type: 'railH', x, y: 8 }); }
   for (let y = 0; y < 8; y++) if (![5, 6].includes(y)) { blockedEdges.add(edgeKey(9, y, 10, y)); railings.push({ type: 'railV', x: 10, y }); }
-  for (let y = 10; y <= 14; y++) blockedEdges.add(edgeKey(15, y, 16, y));
+  for (let y = 11; y <= 14; y++) blockedEdges.add(edgeKey(20, y, 21, y));   // volleyball net
   for (let y = 0; y < HUT_D; y++) blockedEdges.add(edgeKey(10, y, 11, y));   // Content Hub's own left wall
 
   // Furniture. block:true marks the cells it covers as solid; flat:true is painted on the ground.
@@ -167,21 +167,25 @@
   add({ type: 'ringlight', x: 23.2, y: 2.3, w: 0.4, d: 0.4, h: 52 });
   add({ type: 'plant', x: 23.1, y: 6.2, w: 0.7, d: 0.7, h: 14 });
   add({ type: 'plant', x: 11.15, y: 6.9, w: 0.7, d: 0.7, h: 14 });
-  // Beach
-  add({ type: 'danceFloor', x: 3.6, y: 10.4, w: 4.8, d: 4.4, flat: true, block: false });
-  add({ type: 'court', x: 12, y: 9.6, w: 8, d: 5.8, flat: true, block: false });
+  // Resort grounds: coffee bar beside the Compliance Hub, curvy pool with loungers, dance floor, cabana,
+  // volleyball on the sand, palms and bougainvillea.
+  add({ type: 'pool', x: 3.6, y: 10.4, w: 8.0, d: 3.6, flat: true, block: true });
+  add({ type: 'danceFloor', x: 12.4, y: 11.5, w: 3.8, d: 3.9, flat: true, block: false });
+  add({ type: 'court', x: 17.2, y: 10.3, w: 6.1, d: 5.3, flat: true, block: false });
   add({ type: 'coffeeBar', x: 0.05, y: 8.9, w: 0.9, d: 3.2, h: 30 });
   for (const sy of [9.3, 10.3, 11.3]) add({ type: 'stool', x: 1.25, y: sy, w: 0.4, d: 0.4, h: 16, block: false });
-  add({ type: 'truss', x: 3.6, y: 10.15, w: 4.8, d: 0.2, h: 84, block: false });
-  add({ type: 'speaker', x: 2.95, y: 10.0, w: 0.55, d: 0.55, h: 32 });
-  add({ type: 'speaker', x: 8.55, y: 10.0, w: 0.55, d: 0.55, h: 32 });
-  add({ type: 'net', x: 15.95, y: 9.7, w: 0.1, d: 5.6, h: 46, block: false });
-  add({ type: 'lounger', x: 21.15, y: 11.2, w: 0.8, d: 1.8, h: 10 });
-  add({ type: 'lounger', x: 22.55, y: 11.2, w: 0.8, d: 1.8, h: 10 });
-  add({ type: 'umbrella', x: 21.95, y: 10.35, w: 0.6, d: 0.6, h: 70, col: '#ff6f61', block: false });
-  add({ type: 'sandcastle', x: 18.9, y: 15.1, w: 0.8, d: 0.7, h: 12, block: false });
-  for (const [px, py] of [[3.2, 8.2], [6.5, 8.2], [14.2, 8.2], [17.5, 8.2]]) add({ type: 'torch', x: px, y: py, w: 0.3, d: 0.3, h: 46 });
-  for (const [px, py, s] of [[0.3, 14.6, 1.1], [23.4, 9.0, 1.05], [23.2, 15.0, 1.15], [10.4, 15.1, 0.95], [2.5, 15.3, 0.9], [20.6, 15.4, 0.85]])
+  add({ type: 'truss', x: 12.4, y: 11.25, w: 3.8, d: 0.2, h: 84, block: false });
+  add({ type: 'speaker', x: 16.35, y: 11.1, w: 0.55, d: 0.55, h: 32 });
+  add({ type: 'speaker', x: 16.35, y: 14.9, w: 0.55, d: 0.55, h: 32 });
+  add({ type: 'net', x: 20.45, y: 10.4, w: 0.1, d: 5.1, h: 46, block: false });
+  for (const lx of [4.2, 6.0, 7.8, 9.6]) add({ type: 'lounger', x: lx, y: 14.35, w: 0.8, d: 1.5, h: 10 });
+  for (const ux of [5.35, 8.95]) add({ type: 'umbrella', x: ux, y: 14.7, w: 0.6, d: 0.6, h: 68, block: false });
+  add({ type: 'cabana', x: 21.3, y: 8.4, w: 2.3, d: 1.5, h: 74 });
+  add({ type: 'sandcastle', x: 21.6, y: 15.2, w: 0.8, d: 0.6, h: 12, block: false });
+  for (const [px, py] of [[3.2, 8.2], [6.5, 8.2], [13.4, 8.2], [20.2, 8.2]]) add({ type: 'lantern', x: px, y: py, w: 0.3, d: 0.3, h: 46 });
+  for (const [bx, by, c] of [[2.0, 8.15, '#e8336e'], [8.5, 8.15, '#a46bff'], [12.1, 8.15, '#e8336e'], [11.9, 15.3, '#a46bff'], [0.5, 12.6, '#e8336e']])
+    add({ type: 'bush', x: bx, y: by, w: 0.7, d: 0.6, h: 16, col: c, block: false });
+  for (const [px, py, s] of [[0.3, 14.6, 1.1], [2.3, 15.3, 0.9], [11.0, 15.3, 0.95], [23.5, 15.5, 1.1], [11.5, 9.3, 0.9]])
     add({ type: 'palm', x: px, y: py, w: 0.6, d: 0.6, h: 110 * s, s });
 
   // Desks double as each bot's workstation. seat = cell the bot sits in.
@@ -203,9 +207,9 @@
   addDesk('asher', 19, 5, { dual: true, zone: 'content' });
 
   // Mikay and Taks don't have desks: their "home" is the flower arch photo spot on the beach
-  add({ type: 'museArch', x: 19.6, y: 8.35, w: 1.8, d: 0.3, h: 64, block: false });
-  desks.mikay = { seat: { x: 20.1, y: 9.3 } };
-  desks.taks = { seat: { x: 21.0, y: 9.5 } };
+  add({ type: 'museArch', x: 17.4, y: 8.35, w: 1.8, d: 0.3, h: 64, block: false });
+  desks.mikay = { seat: { x: 17.9, y: 9.3 } };
+  desks.taks = { seat: { x: 18.8, y: 9.5 } };
 
   const solid = Array.from({ length: W }, () => new Array(H).fill(false));
   for (const f of F) if (f.block) {
@@ -217,13 +221,15 @@
   // Places bots hang out when idle. z = how high they sit/stand.
   const spots = [
     { x: 1.45, y: 9.5, z: 0, n: 'coffee' }, { x: 1.45, y: 10.5, z: 0, n: 'coffee' }, { x: 1.45, y: 11.5, z: 0, n: 'coffee' },
-    { x: 4.6, y: 11.5, z: 2, n: 'dance' }, { x: 6.0, y: 11.3, z: 2, n: 'dance' }, { x: 7.4, y: 11.7, z: 2, n: 'dance' },
-    { x: 5.2, y: 13.1, z: 2, n: 'dance' }, { x: 6.8, y: 13.5, z: 2, n: 'dance' }, { x: 4.7, y: 14.3, z: 2, n: 'dance' },
-    { x: 13.6, y: 11.3, z: 0, n: 'volley' }, { x: 13.4, y: 13.7, z: 0, n: 'volley' },
-    { x: 18.4, y: 11.6, z: 0, n: 'volley' }, { x: 18.6, y: 13.8, z: 0, n: 'volley' },
-    { x: 21.55, y: 12.4, z: 9, n: 'lounger' }, { x: 22.95, y: 12.4, z: 9, n: 'lounger' },
-    { x: 20.1, y: 9.3, z: 0, n: 'muse' }, { x: 21.0, y: 9.5, z: 0, n: 'muse' },
-    { x: 11.5, y: 14.3, z: 0, n: 'wander' }, { x: 10.8, y: 9.3, z: 0, n: 'wander' }, { x: 21.5, y: 15.3, z: 0, n: 'wander' },
+    { x: 13.0, y: 12.4, z: 2, n: 'dance' }, { x: 14.4, y: 12.2, z: 2, n: 'dance' }, { x: 15.6, y: 12.7, z: 2, n: 'dance' },
+    { x: 13.4, y: 14.0, z: 2, n: 'dance' }, { x: 14.9, y: 14.5, z: 2, n: 'dance' },
+    { x: 18.3, y: 11.8, z: 0, n: 'volley' }, { x: 18.2, y: 14.0, z: 0, n: 'volley' },
+    { x: 22.6, y: 12.0, z: 0, n: 'volley' }, { x: 22.7, y: 14.2, z: 0, n: 'volley' },
+    { x: 4.6, y: 15.2, z: 9, n: 'lounger' }, { x: 6.4, y: 15.2, z: 9, n: 'lounger' }, { x: 8.2, y: 15.2, z: 9, n: 'lounger' }, { x: 10.0, y: 15.2, z: 9, n: 'lounger' },
+    { x: 22.0, y: 9.3, z: 12, n: 'lounger' }, { x: 23.0, y: 9.3, z: 12, n: 'lounger' },
+    { x: 5.5, y: 10.75, z: -16, n: 'swim' }, { x: 8.4, y: 10.8, z: -16, n: 'swim' }, { x: 11.2, y: 12.6, z: -16, n: 'swim' },
+    { x: 17.9, y: 9.3, z: 0, n: 'muse' }, { x: 18.8, y: 9.5, z: 0, n: 'muse' },
+    { x: 12.6, y: 9.4, z: 0, n: 'wander' }, { x: 2.4, y: 13.8, z: 0, n: 'wander' }, { x: 19.6, y: 15.5, z: 0, n: 'wander' },
   ];
 
   // ───────────────────────── Pathfinding (A*) ─────────────────────────
@@ -299,6 +305,7 @@
     eat: ['Kape muna ☕', 'Iced latte 🧊', 'One more cookie 🍪', 'Barista knows my order', 'Caffeine = compliance', 'Ensaymada break 🥐'],
     play: ['Spike! 🏐', 'Nice dig!', 'Mine! Mine!', 'Point for us!', 'Set it up!', 'Sand in my shoes 😂', 'Rematch?'],
     dance: ['Let\'s dance! 💃', 'Watch this move 🕺', 'This is my song! 🎶', 'Budots time 😂', 'Cha-cha slide!', 'Turn it up! 🔊'],
+    swim: ['The water is perfect! 🏊', 'Pool day! 💦', 'Cannonball! 💥', 'Floating my worries away', 'Splash! 🌊', 'Five more laps'],
     relax: ['Ahh, sea breeze 😌', 'Five more minutes 😴', 'Coconut break 🥥', 'Sunset mode 🌅', 'Don\'t wake me 😎'],
     mikay: ['Ganda lang ako dito 💅', 'Selfie muna 📸', 'Hydrate, babes ✨', 'Golden hour = my hour 🌅', 'Pose ulit! 💃',
       'Did someone say photoshoot?', 'Glow up, not show up ✨', 'Ang init, pero ang ganda pa rin 😌'],
@@ -311,7 +318,7 @@
       ['Why is the risk report so calm?', 'It manages expectations'], ['Knock knock', 'Who\'s there? …Compliance. Sign here.']],
   };
 
-  const ACTIVITY = { coffee: 'eat', volley: 'play', dance: 'dance', lounger: 'relax' };
+  const ACTIVITY = { coffee: 'eat', volley: 'play', dance: 'dance', lounger: 'relax', swim: 'swim' };
   const FOODS = { coffee: ['☕', '🧋', '🥤', '🍪', '🥐'] };
 
   const bots = BOT_DEFS.map((d, i) => {
@@ -585,20 +592,21 @@
         break;
       }
       case 'coffeeBar': {
-        box(x, y, w, d, h, 0, BAMBOO, { top: '#f0dcb4' });
-        for (let i = 0; i < 9; i++) quadX(x + w + .001, y + .1 + i * .34, y + .16 + i * .34, 2, h - 2, BAMBOO_D);  // bamboo front
+        box(x, y, w, d, h, 0, '#f4efe6', { top: '#b9875a', right: '#e5ded1' });
+        for (let i = 0; i < 9; i++) quadX(x + w + .001, y + .1 + i * .34, y + .16 + i * .34, 2, h - 4, 'rgba(122,74,34,.55)');  // wood slats
         box(x + .15, y + .3, .55, .55, 20, h, '#c9ccd6', { top: '#e9ebf2' });                                       // espresso machine
         quadX(x + .7 + .001, y + .4, y + .75, h + 6, h + 16, '#30303e');
         const s = iso(x + .45, y + .6, h + 24 + Math.sin(T.t * 3) * 3); ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 7); ctx.fill();
         for (let i = 0; i < 3; i++) box(x + .35, y + 1.2 + i * .35, .2, .2, 6, h, ['#ffffff', '#ffd23d', '#ff9bd0'][i]);
         box(x + .25, y + 2.4, .45, .45, 12, h, 'rgba(220,240,255,.6)', { top: 'rgba(240,250,255,.6)' });           // cookie jar
         for (const [dx, dy] of [[.4, 2.6], [.5, 2.5]]) { const p = iso(x + dx, y + dy, h + 5); ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 7); ctx.fillStyle = '#b8743f'; ctx.fill(); }
-        // mini thatched roof on bamboo posts + sign
-        for (const [px, py] of [[x + .05, y + .05], [x + w + .45, y + .05], [x + .05, y + d - .05], [x + w + .45, y + d - .05]]) pole(px, py, 0, 86, BAMBOO, 3);
-        poly([iso(x - .3, y - .3, 92), iso(x + w + .8, y - .3, 80), iso(x + w + .8, y + d + .3, 80), iso(x - .3, y + d + .3, 92)], THATCH);
-        poly([iso(x + w + .8, y - .3, 80), iso(x + w + .8, y + d + .3, 80), iso(x + w + .8, y + d + .3, 72), iso(x + w + .8, y - .3, 72)], THATCH_D);
-        for (let i = 0; i < 16; i++) { const p = iso(x + w + .8, y - .25 + i * (d + .5) / 16, 72); line(p, { x: p.x + 1, y: p.y + 4 + (i % 3) }, THATCH_D, 2); }
-        plank('☕ COFFEE BAR', 'x', x + w + .82, y + .2, y + d - .2, 74, 86, 11);
+        // cream market umbrella over the bar
+        pole(x + w + .3, y + d / 2, 0, 92, '#2a2420', 2.5);
+        { const c = iso(x + w + .3, y + d / 2, 98);
+          for (let i = 0; i < 10; i++) { const a1 = i / 10 * Math.PI * 2, a2 = (i + 1) / 10 * Math.PI * 2;
+            ctx.beginPath(); ctx.moveTo(c.x, c.y - 10); ctx.lineTo(c.x + Math.cos(a1) * 60, c.y + Math.sin(a1) * 30 + 6); ctx.lineTo(c.x + Math.cos(a2) * 60, c.y + Math.sin(a2) * 30 + 6); ctx.closePath();
+            ctx.fillStyle = i % 2 ? '#f4efe3' : '#e9e0cc'; ctx.fill(); } }
+        plank('☕ COFFEE BAR', 'x', x + w + .002, y + .3, y + d - .3, 10, 22, 10);
         break;
       }
       case 'stool': {
@@ -653,10 +661,10 @@
         for (const z of [h - 14, h - 7, h]) line(iso(x, y, z), iso(x, y + d, z), z === h ? '#ffffff' : 'rgba(40,40,60,.5)', z === h ? 2.5 : 1);
         break;
       }
-      case 'lounger':
-        box(x + .05, y + .1, .7, 1.6, 6, 0, '#f2f2f2');
-        box(x + .08, y + .15, .64, 1.5, 3, 6, '#3fb7e0', { top: '#56c8ee' });
-        box(x + .08, y + .12, .64, .35, 12, 6, '#3fb7e0', { top: '#56c8ee' });
+      case 'lounger':   // teak sun lounger with a cream cushion
+        box(x + .05, y + .1, .7, d - .2, 6, 0, '#7a4128', { top: '#8f4f31' });
+        box(x + .08, y + .15, .64, d - .3, 3, 6, '#efe6d4', { top: '#f7f0e2' });
+        box(x + .08, y + .12, .64, .32, 12, 6, '#efe6d4', { top: '#f7f0e2' });
         break;
       case 'umbrella': {
         pole(x + .3, y + .3, 0, h, '#f2f2f2', 2);
@@ -665,8 +673,9 @@
           const a1 = i / 8 * Math.PI * 2, a2 = (i + 1) / 8 * Math.PI * 2;
           ctx.beginPath(); ctx.moveTo(c.x, c.y - 8);
           ctx.lineTo(c.x + Math.cos(a1) * 40, c.y + Math.sin(a1) * 20 + 4); ctx.lineTo(c.x + Math.cos(a2) * 40, c.y + Math.sin(a2) * 20 + 4); ctx.closePath();
-          ctx.fillStyle = i % 2 ? '#ffffff' : f.col; ctx.fill();
+          ctx.fillStyle = i % 2 ? '#f4efe3' : '#ebe3d2'; ctx.fill();
         }
+        for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; ctx.fillStyle = '#d9cdb5'; ctx.fillRect(c.x + Math.cos(a) * 40 - 1, c.y + Math.sin(a) * 20 + 4, 2, 4); }
         break;
       }
       case 'sandcastle': {
@@ -714,9 +723,72 @@
         ctx.fillStyle = '#ff4f7b'; ctx.fillText('✨ MUSE SPOT ✨', sp.x, sp.y); ctx.textAlign = 'left';
         break;
       }
-      case 'railH': case 'railV': {
-        if (f.type === 'railH') { pole(x + .05, y, 0, 18, BAMBOO, 3); line(iso(x, y, 16), iso(x + 1, y, 16), BAMBOO_D, 5); line(iso(x, y, 16), iso(x + 1, y, 16), BAMBOO, 3.5); line(iso(x, y, 8), iso(x + 1, y, 8), BAMBOO, 2.5); }
-        else { pole(x, y + .05, 0, 18, BAMBOO, 3); line(iso(x, y, 16), iso(x, y + 1, 16), BAMBOO_D, 5); line(iso(x, y, 16), iso(x, y + 1, 16), BAMBOO, 3.5); line(iso(x, y, 8), iso(x, y + 1, 8), BAMBOO, 2.5); }
+      case 'pool': {   // curvy resort pool: tiled rim, turquoise water, ripples and floats
+        const shape = (m, z) => {
+          ctx.beginPath();
+          const blobs = [[x - m, y + .2 - m, 5.6 + 2 * m, d - .2 + 2 * m, .9 + m], [x + 4.8 - m, y - m, w - 4.8 + 2 * m, d - .9 + 2 * m, .9 + m], [x + 1.5 - m, y + 1.6 - m, 4.2 + 2 * m, d - 1.6 + 2 * m, .9 + m]];
+          for (const [bx, by, bw, bd, r] of blobs) {
+            const pts = [], rr2 = Math.min(r, bw / 2, bd / 2);
+            for (const [cx, cy, a0] of [[bx + bw - rr2, by + rr2, -Math.PI / 2], [bx + bw - rr2, by + bd - rr2, 0], [bx + rr2, by + bd - rr2, Math.PI / 2], [bx + rr2, by + rr2, Math.PI]])
+              for (let k = 0; k <= 8; k++) { const a = a0 + k / 8 * Math.PI / 2; pts.push(iso(cx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2, z)); }
+            pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath();
+          }
+        };
+        shape(.32, 1); ctx.fillStyle = '#f6f2ea'; ctx.fill('nonzero');
+        shape(.12, 1); ctx.fillStyle = '#d9d3c6'; ctx.fill('nonzero');
+        shape(0, -2);
+        const c1 = iso(x + w / 2, y, 0), c2 = iso(x + w / 2, y + d, 0);
+        const g = ctx.createLinearGradient(c1.x, c1.y, c2.x, c2.y); g.addColorStop(0, '#5fe0de'); g.addColorStop(1, '#16a6b8');
+        ctx.fillStyle = g; ctx.fill('nonzero');
+        ctx.save(); shape(0, -2); ctx.clip('nonzero');
+        ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
+        for (let k = 0; k <= w * 3; k++) line(iso(x + k / 3, y - .5, -2), iso(x + k / 3, y + d + .5, -2), 'rgba(255,255,255,.1)', 1);
+        for (let k = 0; k <= d * 3; k++) line(iso(x - .5, y + k / 3, -2), iso(x + w + .5, y + k / 3, -2), 'rgba(255,255,255,.1)', 1);
+        for (let k = 0; k < 9; k++) {   // caustic shimmer
+          const px = x + ((k * 2.3 + T.t * .35) % w), py = y + .4 + ((k * 1.7) % (d - .8)), p = iso(px, py, -2);
+          ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(p.x, p.y, 9 + Math.sin(T.t * 2 + k) * 3, 2.2, 0, 0, Math.PI); ctx.stroke();
+        }
+        ctx.restore();
+        // floats: a ring and an air lounger drifting
+        const r = iso(x + 2.6 + Math.sin(T.t * .3) * .6, y + 1.9 + Math.cos(T.t * .25) * .3, 0);
+        ctx.lineWidth = 5; ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(r.x, r.y, 11, 5.5, 0, 0, 7); ctx.stroke();
+        ctx.strokeStyle = '#ff5d5d'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(r.x, r.y, 11, 5.5, 0, k * Math.PI / 2, k * Math.PI / 2 + .5); ctx.stroke(); }
+        const fl = iso(x + 6.4 + Math.sin(T.t * .22 + 1) * .5, y + 1.3, 0);
+        ctx.save(); ctx.translate(fl.x, fl.y); ctx.rotate(.45); rr(-16, -4.5, 32, 9, 4.5); ctx.fillStyle = '#fbf7ef'; ctx.fill();
+        ctx.strokeStyle = '#d9d3c6'; ctx.lineWidth = 1; for (let k = -10; k <= 10; k += 5) { ctx.beginPath(); ctx.moveTo(k, -4); ctx.lineTo(k, 4); ctx.stroke(); } ctx.restore();
+        break;
+      }
+      case 'cabana': {   // daybed under a slatted wooden roof with sheer curtains
+        box(x + .15, y + .15, w - .3, d - .3, 10, 0, '#e9e3d6');
+        box(x + .2, y + .2, w - .4, d - .4, 5, 10, '#fbf8f2', { top: '#ffffff' });
+        for (let k = 0; k < 3; k++) box(x + .35 + k * .6, y + .25, .45, .25, 7, 15, ['#e9dcc4', '#f3ead8', '#d8c7a8'][k]);
+        for (const [px, py] of [[x, y], [x + w, y], [x, y + d], [x + w, y + d]]) pole(px, py, 0, h, '#5a3a22', 3.5);
+        for (let k = 0; k <= 8; k++) line(iso(x - .1, y + k * d / 8, h), iso(x + w + .1, y + k * d / 8, h), '#6b4a26', 2.5);
+        ctx.globalAlpha = .55;
+        for (const [px, py] of [[x + w, y + d], [x, y + d]]) {
+          const top = iso(px, py, h - 4), bot = iso(px, py, 2), sw2 = Math.sin(T.t * 1.4 + px) * 3;
+          ctx.beginPath(); ctx.moveTo(top.x - 6, top.y); ctx.quadraticCurveTo(top.x + 6 + sw2, (top.y + bot.y) / 2, bot.x - 2 + sw2, bot.y); ctx.lineTo(bot.x - 10 + sw2, bot.y); ctx.quadraticCurveTo(top.x - 4 + sw2, (top.y + bot.y) / 2, top.x - 12, top.y); ctx.closePath();
+          ctx.fillStyle = '#ffffff'; ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        break;
+      }
+      case 'bush': {   // bougainvillea
+        const p = iso(x + w / 2, y + d / 2, 0);
+        for (const [ox, oy, r] of [[-8, -6, 9], [6, -8, 9], [0, -14, 9], [-2, -4, 8]]) circ(p.x + ox, p.y + oy, r, ox > 0 ? '#2f8f4e' : '#3aa65c');
+        for (let k = 0; k < 14; k++) circ(p.x - 12 + ((k * 37) % 24), p.y - 20 + ((k * 23) % 17), 2.2, k % 3 ? f.col : '#ffd6ec');
+        break;
+      }
+      case 'lantern': {
+        const a = iso(x + .15, y + .15, 0), b2 = iso(x + .15, y + .15, h);
+        line(a, b2, '#2a2420', 3);
+        rr(b2.x - 5, b2.y - 12, 10, 12, 2); ctx.fillStyle = '#2a2420'; ctx.fill();
+        rr(b2.x - 3.5, b2.y - 10.5, 7, 9, 1.5); ctx.fillStyle = '#ffd98a'; ctx.fill();
+        break;
+      }
+      case 'railH': case 'railV': {   // low white wall with a wooden cap
+        if (f.type === 'railH') { box(x, y - .06, 1, .12, 14, 0, '#f4efe6', { left: '#ece6da', top: '#9c6a3e' }); }
+        else { box(x - .06, y, .12, 1, 14, 0, '#f4efe6', { right: '#e2dbcd', top: '#9c6a3e' }); }
         break;
       }
     }
@@ -726,7 +798,7 @@
   function volleyBall(t) {
     const players = bots.filter((b) => b.spot && b.spot.n === 'volley' && b.activity === b.spot && !b.path.length && !b.task);
     if (!players.length) return null;
-    const L = players.filter((b) => b.x < 16), R = players.filter((b) => b.x >= 16);
+    const L = players.filter((b) => b.x < 20.5), R = players.filter((b) => b.x >= 20.5);
     if (L.length && R.length) {
       const P = 1.5, k = Math.floor(t / P), u = t / P - k;
       const from = k % 2 ? R[k % R.length] : L[k % L.length], to = k % 2 ? L[(k + 1) % L.length] : R[(k + 1) % R.length];
@@ -746,25 +818,40 @@
   // ───────────────────────── Drawing: sea, beach and huts ─────────────────────────
   const rect = (m, z = 0) => [iso(-m, -m, z), iso(W + m, -m, z), iso(W + m, H + m, z), iso(-m, H + m, z)];
   const SPECKS = Array.from({ length: 260 }, (_, i) => ({ x: ((i * 7919) % 1000) / 1000 * (W + 3) - 1.5, y: ((i * 104729) % 1000) / 1000 * (H + 3) - 1.5, c: i % 3 }));
+  // Day / night: 'auto' follows the clock in Manila; the 🌙 button switches auto → day → night.
+  let skyMode = localStorage.getItem('botOfficeSky') || 'auto';
+  function nightness() {
+    if (skyMode === 'day') return 0;
+    if (skyMode === 'night') return 1;
+    const h = (new Date().getUTCHours() + 8 + new Date().getUTCMinutes() / 60) % 24;
+    if (h >= 19 || h < 5) return 1;
+    if (h >= 17.5) return (h - 17.5) / 1.5;      // sunset
+    if (h < 6) return 1 - (h - 5);               // sunrise
+    return 0;
+  }
+  const STARS = Array.from({ length: 70 }, (_, i) => ({ x: ((i * 7919) % 1000) / 1000, y: ((i * 104729) % 1000) / 1000, r: (i % 3) * .5 + .6 }));
   function drawGround(t) {
-    // sky and sea (screen-wide, in world units)
+    const N = nightness();
     const hy = iso(-7, -7).y;
     const sky = ctx.createLinearGradient(0, hy - 520, 0, hy);
-    sky.addColorStop(0, '#5ec2f2'); sky.addColorStop(1, '#c9efff');
+    sky.addColorStop(0, N > .5 ? '#0b1430' : N > 0 ? '#ff9a6b' : '#5ec2f2'); sky.addColorStop(1, N > .5 ? '#253a6b' : N > 0 ? '#ffd2a1' : '#c9efff');
     ctx.fillStyle = sky; ctx.fillRect(-6000, hy - 6000, 12000, 6000);
+    if (N > .5) {
+      const cx = iso(W / 2, H / 2).x;
+      for (const s of STARS) { ctx.globalAlpha = .5 + .5 * Math.sin(t * 2 + s.x * 40); circ(cx - 1100 + s.x * 2200, hy - 40 - s.y * 460, s.r, '#ffffff'); }
+      ctx.globalAlpha = 1; circ(cx + 520, hy - 360, 26, '#fff6d8'); circ(cx + 532, hy - 368, 22, '#0b1430');
+    }
     const sea = ctx.createLinearGradient(0, hy, 0, hy + 900);
     sea.addColorStop(0, '#2fb6d8'); sea.addColorStop(0.5, '#1d9fca'); sea.addColorStop(1, '#147fae');
     ctx.fillStyle = sea; ctx.fillRect(-6000, hy, 12000, 6000);
-    // far island with tiny nipa huts, and clouds
     const fx = iso(-7, -7).x - 420;
-    ctx.fillStyle = '#4fae74'; ctx.beginPath(); ctx.ellipse(fx, hy, 150, 18, 0, Math.PI, 0); ctx.fill();
-    for (const hx of [-50, -20, 15]) { ctx.fillStyle = '#a5753f'; ctx.fillRect(fx + hx, hy - 16, 14, 10); ctx.fillStyle = THATCH; ctx.beginPath(); ctx.moveTo(fx + hx - 4, hy - 16); ctx.lineTo(fx + hx + 7, hy - 26); ctx.lineTo(fx + hx + 18, hy - 16); ctx.closePath(); ctx.fill(); }
-    for (let i = 0; i < 5; i++) {
+    ctx.fillStyle = '#4fae74'; ctx.beginPath(); ctx.ellipse(fx, hy, 190, 26, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#3d9a63'; ctx.beginPath(); ctx.ellipse(fx + 120, hy, 120, 16, 0, Math.PI, 0); ctx.fill();
+    if (N < .5) for (let i = 0; i < 5; i++) {
       const cx = ((i * 380 + t * 6) % 2400) - 1200 + iso(W / 2, H / 2).x, cy = hy - 120 - (i % 3) * 70;
       ctx.fillStyle = 'rgba(255,255,255,.85)';
       for (const [ox, oy, r] of [[0, 0, 26], [24, -10, 30], [52, 0, 24], [26, 6, 26]]) { ctx.beginPath(); ctx.arc(cx + ox, cy + oy, r, 0, 7); ctx.fill(); }
     }
-    // gentle wave rings around the island
     for (let i = 0; i < 5; i++) {
       const m = 3 + ((i * 1.6 + t * 0.35) % 8);
       ctx.globalAlpha = Math.max(0, 0.45 - m / 18);
@@ -772,17 +859,24 @@
       ctx.strokeStyle = '#e8fbff'; ctx.lineWidth = 2; ctx.stroke();
     }
     ctx.globalAlpha = 1;
-    // island: foam, wet sand, dry sand
+    for (let k = 0; k < 14; k++) box(13.2, H + 1.2 + k * .35, 1.2, .3, 3, 2, k % 2 ? '#9c6a3e' : '#8a5a33', { top: k % 2 ? '#b07a48' : '#a06c3c' });
+    for (const [px, py] of [[13.2, H + 2], [14.4, H + 2], [13.2, H + 5.6], [14.4, H + 5.6]]) pole(px, py, -12, 6, '#5a3a22', 3);
     const foam = 2.5 + Math.sin(t * 1.2) * 0.12;
     poly(rect(foam), '#effcff'); poly(rect(2.15), '#e2c389'); poly(rect(1.8), '#f3dcaa');
     for (const s of SPECKS) { const p = iso(s.x, s.y); ctx.fillStyle = ['#e3c48c', '#fff1cf', '#d8b878'][s.c]; ctx.fillRect(p.x, p.y, 2, 1.5); }
-    // bamboo floors of the huts
+    for (const [a, b, c2, d2] of [[-1.6, 8.0, 0, 16.4], [-1.6, 15.7, 3.4, 17.4]]) poly([iso(a, b), iso(c2, b), iso(c2, d2), iso(a, d2)], '#7cc46b');
+    const deck = (a, b, c2, d2) => {
+      poly([iso(a, b, .5), iso(c2, b, .5), iso(c2, d2, .5), iso(a, d2, .5)], '#ebe5da');
+      for (let x = Math.ceil(a); x < c2; x++) line(iso(x, b, .5), iso(x, d2, .5), 'rgba(160,150,135,.35)', 1);
+      for (let y = Math.ceil(b); y < d2; y++) line(iso(a, y, .5), iso(c2, y, .5), 'rgba(160,150,135,.35)', 1);
+    };
+    deck(0, HUT_D, W, 9.9); deck(2.9, 9.9, 16.9, 16.0);
     for (const [x0, x1] of HUTS) {
       for (let x = x0; x < x1; x++) for (let y = 0; y < HUT_D; y++)
-        poly([iso(x, y, 1), iso(x + 1, y, 1), iso(x + 1, y + 1, 1), iso(x, y + 1, 1)], (y % 2) ? '#d9ab6a' : '#cf9f5d');
-      for (let y = 0; y < HUT_D; y += 0.5) line(iso(x0, y, 1), iso(x1, y, 1), 'rgba(120,80,30,.25)', 1);
-      poly([iso(x0, HUT_D, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x0, HUT_D, -4)], '#a77a3e');
-      poly([iso(x1, 0, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x1, 0, -4)], '#8f6631');
+        poly([iso(x, y, 1), iso(x + 1, y, 1), iso(x + 1, y + 1, 1), iso(x, y + 1, 1)], ((x + y) % 2) ? '#e3c9a1' : '#dcc096');
+      for (let x = x0; x < x1; x++) for (let y = 0; y < HUT_D; y++) line(iso(x, y + .5, 1), iso(x + .5, y, 1), 'rgba(150,110,60,.18)', 1);
+      poly([iso(x0, HUT_D, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x0, HUT_D, -4)], '#cfc6b6');
+      poly([iso(x1, 0, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x1, 0, -4)], '#bdb3a2');
     }
   }
   function plank(text, plane, p, a1, a2, z1, z2, size = 14) {
@@ -794,48 +888,76 @@
     ctx.font = `800 ${size}px ui-rounded, "Trebuchet MS", system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ffe9b0'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 2; ctx.fillText(text, 0, 1); ctx.restore();
   }
+  function baskets(plane, p, a, z) {   // woven basket wall decor
+    for (const [da, dz, r] of [[0, 0, 13], [.55, 9, 9], [.5, -10, 8], [-.45, -6, 7], [.95, -2, 6]]) {
+      const c = plane === 'y' ? iso(a + da, p, z + dz) : iso(p, a + da, z + dz);
+      ctx.beginPath(); ctx.ellipse(c.x, c.y, r, r * .9, 0, 0, 7); ctx.fillStyle = '#c99a5f'; ctx.fill();
+      ctx.strokeStyle = '#9c7038'; ctx.lineWidth = 1; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.ellipse(c.x, c.y, r * k / 4, r * .9 * k / 4, 0, 0, 7); ctx.stroke(); }
+    }
+  }
   function drawHutWalls() {
-    // woven bamboo back walls (each hut has its own)
     for (const [x0, x1] of HUTS) {
-      box(x0 - 0.25, -0.25, x1 - x0 + 0.25, 0.25, WALL_H, 0, '#b88446', { left: '#cf9f5d', top: '#8a5a2b' });
-      const sideH = x0 === 0 ? WALL_H : 26;   // the Content Hub's side wall is low so the Compliance Hub stays visible
-      box(x0 - 0.25, 0, 0.25, HUT_D, sideH, 0, '#b88446', { right: '#bf8d4e', top: '#8a5a2b' });
-      for (let x = x0; x < x1; x += 0.5) quadY(0.001, x, x + .05, 0, WALL_H, 'rgba(110,70,25,.35)');
-      for (let y = 0; y < HUT_D; y += 0.5) quadX(x0 + 0.001, y, y + .05, 0, sideH, 'rgba(110,70,25,.35)');
-      for (const z of [22, 48]) { quadY(0.002, x0, x1, z, z + 3, 'rgba(110,70,25,.35)'); if (z < sideH) quadX(x0 + 0.002, 0, HUT_D, z, z + 3, 'rgba(110,70,25,.35)'); }
+      box(x0 - 0.25, -0.25, x1 - x0 + 0.25, 0.25, WALL_H, 0, '#efe9df', { left: '#f6f2ea', top: '#d9d2c5' });
+      const sideH = x0 === 0 ? WALL_H : 26;
+      box(x0 - 0.25, 0, 0.25, HUT_D, sideH, 0, '#efe9df', { right: '#ebe5da', top: '#d9d2c5' });
+      const slat = x0 === 0 ? [9.0, 10] : [22.8, W];
+      quadY(0.001, slat[0], slat[1], 0, WALL_H, '#6b4429');
+      for (let x = slat[0] + .08; x < slat[1]; x += .16) quadY(0.002, x, x + .05, 0, WALL_H, '#4f301b');
+      quadY(0.001, x0, x1, 0, 6, '#d9d2c5');
     }
-    // windows looking out to the sea
-    for (const wx of [5.0, 7.3, 18.6]) {
-      quadY(0.003, wx, wx + 1.6, 28, 62, '#7a4a22');
-      quadY(0.004, wx + .1, wx + 1.5, 31, 59, '#8fdcf2'); quadY(0.005, wx + .1, wx + 1.5, 31, 40, '#3fb3d6');
-      quadY(0.006, wx + .77, wx + .83, 31, 59, '#7a4a22');
-    }
-    for (const [hx, wy] of [[0, 1.4], [0, 3.6]]) { quadX(hx + 0.003, wy, wy + 1.5, 28, 62, '#7a4a22'); quadX(hx + 0.004, wy + .1, wy + 1.4, 31, 59, '#8fdcf2'); quadX(hx + 0.005, wy + .1, wy + 1.4, 31, 40, '#3fb3d6'); }
-    // content calendar board
-    quadY(0.003, 14.5, 17.5, 30, 66, '#fff6e6');   // Ashley's posting calendar
+    const win = (plane, p, a, b) => {
+      const q = plane === 'y' ? (a1, a2, z1, z2, c) => quadY(p, a1, a2, z1, z2, c) : (a1, a2, z1, z2, c) => quadX(p, a1, a2, z1, z2, c);
+      q(a, b, 20, 66, '#22201e'); q(a + .07, b - .07, 23, 63, '#9fe2f2'); q(a + .07, b - .07, 23, 34, '#3fb3d6');
+      q(a + .07, b - .07, 34, 37, '#f3dcaa');
+      for (let k = 1; k < 3; k++) { const m = a + (b - a) * k / 3; q(m - .03, m + .03, 23, 63, '#22201e'); }
+    };
+    for (const wx of [5.0, 7.0]) win('y', 0.003, wx, wx + 1.7);
+    win('y', 0.003, 17.8, 19.5);
+    win('x', 0.003, 1.2, 2.9);
+    baskets('x', 0.004, 3.8, 50);
+    baskets('y', 0.004, 20.3, 50);
+    quadY(0.003, 14.5, 17.5, 30, 66, '#fffaf2');   // Ashley's posting calendar
     for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) {
       const cx = 14.65 + c * .56, z = 61 - r * 10;
       quadY(0.004, cx, cx + .46, z - 7, z, (r * 5 + c + Math.floor(stats.done / 2)) % 4 === 0 ? ['#ff6fae', '#ffd23d', '#2ee6c9', '#a77bff'][(r + c) % 4] : '#eadfca');
     }
   }
+  const PENDANTS = [[2, 3.6], [5, 3.6], [8, 3.6], [7, 5.6], [13, 2.6], [16, 2.6], [19, 2.6], [13, 5.6], [16, 5.6], [20, 5.6]];
   function drawRoof() {
-    // thatched nipa roof over the back of each hut (drawn last so it sits on top)
-    const z0 = WALL_H - 4, z1 = WALL_H + 36;
+    const z1 = WALL_H + 30;
     for (const [a, b] of HUTS) {
-      const bx = b + 0.4;
-      poly([iso(a - 0.7, -0.7, z1), iso(bx, -0.7, z1), iso(bx, 1.0, z0), iso(a + 1.0, 1.0, z0)], THATCH);
-      if (a === 0) poly([iso(a - 0.7, -0.7, z1), iso(a + 1.0, 1.0, z0), iso(a + 1.0, HUT_D + 0.4, z0), iso(a - 0.7, HUT_D + 0.4, z1)], shade(THATCH, -0.08));
-      for (let x = a + 1.1; x < bx; x += 0.22) line(iso(x - 1.6, -0.7, z1), iso(x, 1.0, z0), THATCH_D, 1);
-      if (a === 0) for (let y = 1.1; y < HUT_D + 0.4; y += 0.22) line(iso(a - 0.7, y - 1.6, z1), iso(a + 1.0, y, z0), THATCH_D, 1);
-      for (let x = a + 1.0; x < bx; x += 0.12) { const p = iso(x, 1.0, z0); line(p, { x: p.x, y: p.y + 4 + ((x * 31) % 4) }, THATCH_D, 2); }
-      if (a === 0) for (let y = 1.0; y < HUT_D + 0.4; y += 0.12) { const p = iso(a + 1.0, y, z0); line(p, { x: p.x, y: p.y + 4 + ((y * 31) % 4) }, THATCH_D, 2); }
-      line(iso(a - 0.7, -0.7, z1), iso(bx, -0.7, z1), '#8a6427', 4); if (a === 0) line(iso(a - 0.7, -0.7, z1), iso(a - 0.7, HUT_D + 0.4, z1), '#8a6427', 4);
-      else { // gable end of the Content Hub roof
-        poly([iso(a - 0.7, -0.7, z1), iso(a + 1.0, 1.0, z0), iso(a - 0.25, 1.0, z0 - 2), iso(a - 0.25, -0.25, WALL_H)], shade(THATCH, -0.12));
-      }
+      const bx = b + 0.3;
+      box(a - 0.6, -0.6, bx - a + 0.6, 1.3, 14, z1 - 14, '#f4efe6', { left: '#e9e3d8', top: '#fbf8f2', right: '#ddd6c9' });
+      if (a === 0) box(-0.6, 0.7, 1.3, HUT_D - 0.3, 14, z1 - 14, '#f4efe6', { left: '#e9e3d8', top: '#fbf8f2', right: '#ddd6c9' });
+      for (let x = a + .4; x < b; x += .55) line(iso(x, .7, z1 - 6), iso(x, 2.6, z1 - 6), '#6b4429', 3);
+      line(iso(a + .2, 2.6, z1 - 7), iso(b - .2, 2.6, z1 - 7), '#5a3820', 4);
     }
-    plank('🌺 EVERCRESTCORP COMPLIANCE HUB', 'y', 0.2, 1.4, 9.4, z0 + 10, z0 + 30, 15);
-    plank('📱 CONTENT HUB', 'y', 0.2, 14.6, 19.6, z0 + 10, z0 + 30, 15);
+    for (const [px, py] of PENDANTS) {
+      const top = iso(px, py, z1 - 6), lamp = iso(px, py, 96);
+      line(top, lamp, 'rgba(40,30,20,.6)', 1);
+      ctx.beginPath(); ctx.moveTo(lamp.x - 7, lamp.y + 6); ctx.lineTo(lamp.x - 3, lamp.y); ctx.lineTo(lamp.x + 3, lamp.y); ctx.lineTo(lamp.x + 7, lamp.y + 6); ctx.closePath();
+      ctx.fillStyle = '#c99a5f'; ctx.fill(); ctx.strokeStyle = '#9c7038'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    plank('🌺 EVERCRESTCORP COMPLIANCE HUB', 'y', 0.7, 1.2, 9.2, z1 - 13, z1 + 3, 15);
+    plank('📱 CONTENT HUB', 'y', 0.7, 14.6, 19.6, z1 - 13, z1 + 3, 15);
+  }
+  function drawNight(t) {
+    const N = nightness();
+    if (N <= 0) return;
+    ctx.save();
+    ctx.fillStyle = `rgba(10,16,48,${0.5 * N})`; ctx.fillRect(-6000, -6000, 12000, 12000);
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = (p, r, col, a) => { const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r); g.addColorStop(0, col.replace('A', a * N)); g.addColorStop(1, col.replace('A', 0)); ctx.fillStyle = g; ctx.fillRect(p.x - r, p.y - r, 2 * r, 2 * r); };
+    glow(iso(7.6, 12.2, 0), 210, 'rgba(60,230,230,A)', .55);
+    for (const f of F) {
+      if (f.type === 'lantern') glow(iso(f.x + .15, f.y + .15, f.h), 60, 'rgba(255,200,110,A)', .7);
+      if (f.type === 'coffeeBar') glow(iso(f.x + 1, f.y + 1.6, 40), 90, 'rgba(255,190,110,A)', .5);
+      if (f.type === 'truss') glow(iso(f.x + f.w / 2, f.y + 2, 10), 140, 'rgba(255,90,200,A)', .4);
+      if (f.type === 'cabana') glow(iso(f.x + f.w / 2, f.y + f.d / 2, 40), 80, 'rgba(255,220,160,A)', .45);
+    }
+    for (const [px, py] of PENDANTS) glow(iso(px, py, 92), 70, 'rgba(255,205,130,A)', .6);
+    for (const [wx, wy] of [[5.85, 0], [7.85, 0], [18.65, 0]]) glow(iso(wx, wy + .3, 45), 70, 'rgba(255,214,150,A)', .35);
+    ctx.restore();
   }
 
   // ───────────────────────── Drawing: the team (Pixar-style cartoon people) ─────────────────────────
@@ -1061,7 +1183,7 @@
     if (b.path.length) return 'walk';
     const s = desks[b.id] && desks[b.id].seat;
     if (b.team !== 'muse' && (b.state === 'working' || (s && Math.hypot(b.x - s.x, b.y - s.y) < 0.05))) return 'sit';
-    if (b.activity && b.activity === b.spot && !b.task) return { eat: 'eat', play: 'volley', dance: 'dance', relax: 'lounge' }[b.actKind] || 'stand';
+    if (b.activity && b.activity === b.spot && !b.task) return { eat: 'eat', play: 'volley', dance: 'dance', relax: 'lounge', swim: 'swim' }[b.actKind] || 'stand';
     if (b.bubble && b.bubble.until > now() && b.waveUntil > now()) return 'wave';
     if (b.team === 'muse') return 'muse';
     return 'stand';
@@ -1086,8 +1208,15 @@
     ctx.translate(g.x, g.y - b.z - lift);
     ctx.scale((b.face || 1) * L.scale, L.scale);
     if (pose === 'lounge') { ctx.rotate(-0.55); ctx.translate(-4, 6); }
-    person(L, b, t, pose);
+    if (pose === 'swim') { ctx.beginPath(); ctx.rect(-40, -120, 80, 100); ctx.clip(); }   // only head and shoulders above the water
+    person(L, b, t, pose === 'swim' ? 'wave' : pose);
     ctx.restore();
+    if (pose === 'swim') {
+      const w = iso(b.x, b.y, b.z + 20 * L.scale);
+      ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.6;
+      for (let k = 0; k < 2; k++) { const r = 10 + ((t * 8 + k * 6 + b.phase * 3) % 12); ctx.globalAlpha = 1 - r / 24; ctx.beginPath(); ctx.ellipse(w.x, w.y, r * 1.4, r * 0.6, 0, 0, 7); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
     if (b.state === 'working' && Math.floor(t * 3 + b.phase) % 3 === 0) {
       const p = iso(b.x + .3, b.y - .3, b.z + 62); ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText('✦', p.x, p.y);
     }
@@ -1192,6 +1321,7 @@
     if (ball) items.push({ depth: ball.x + ball.y + 0.02, draw: () => drawBall(ball) });
     items.sort((a, b) => a.depth - b.depth).forEach((i) => i.draw());
     drawRoof();
+    drawNight(t);
     for (const b of bots) drawOverlay(b, t);
 
     updateStats();
@@ -1499,6 +1629,12 @@
   document.getElementById('phoneOn').onclick = () => setPhone(true);
   document.getElementById('phoneOff').onclick = () => setPhone(false);
   document.getElementById('phoneBox').addEventListener('toggle', paintPhone);
+
+  // ───────────────────────── Day / night button ─────────────────────────
+  const skyBtn = document.getElementById('skyBtn');
+  const skyLabel = () => { skyBtn.textContent = { auto: '🌗', day: '☀️', night: '🌙' }[skyMode]; skyBtn.title = { auto: 'Day/night: follows Manila time', day: 'Always day', night: 'Always night' }[skyMode]; };
+  skyBtn.onclick = () => { skyMode = { auto: 'day', day: 'night', night: 'auto' }[skyMode]; localStorage.setItem('botOfficeSky', skyMode); skyLabel(); Sound.play('blip'); };
+  skyLabel();
 
   // ───────────────────────── Content Hub ─────────────────────────
   const contModal = document.getElementById('contModal'), contForm = document.getElementById('contForm'), contMsg = document.getElementById('contMsg');
