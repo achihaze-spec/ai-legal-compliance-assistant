@@ -20,6 +20,7 @@ import uuid
 from pathlib import Path
 
 import json
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi import Request
@@ -32,6 +33,7 @@ import veo
 import compliance
 import kyc
 import kyb_docs
+import content_hub
 import outputs
 import content
 
@@ -50,7 +52,8 @@ DOC_EXT = {".pdf", ".docx", ".html", ".htm", ".txt", ".md"}
 MEDIA_EXT = content.VIDEO_EXT | content.IMAGE_EXT
 MAX_BYTES = 25 * 1024 * 1024
 MAX_MEDIA_BYTES = 500 * 1024 * 1024
-MIN_STEP_SECS = {"doc": 4, "reg": 5, "risk": 4, "vid": 5, "cap": 4, "sched": 3, "post": 3}  # so you can actually watch them work
+MIN_STEP_SECS = {"doc": 4, "reg": 5, "risk": 4, "vid": 5, "cap": 4, "sched": 3, "post": 3,
+                 "jp": 5, "asher": 4, "shane": 3, "jacob": 3, "ashley": 3, "david": 3}  # so you can actually watch them work
 
 app = FastAPI(title="Bot Office")
 PHONE = auth.Phone(HERE / "data")
@@ -130,7 +133,11 @@ _events: list[dict] = []
 _lock = threading.Lock()
 
 
+BOT_ALIAS = {"vid": "jp", "cap": "asher", "sched": "ashley", "post": "david"}  # the old content team → the Content Hub team
+
+
 def emit(**ev) -> None:
+    ev["bot"] = BOT_ALIAS.get(ev.get("bot"), ev.get("bot"))
     with _lock:
         ev["id"] = len(_events) + 1
         _events.append(ev)
@@ -173,8 +180,7 @@ async def upload(files: list[UploadFile] = File(...)):
             _jobs.put(job)
             emit(bot="doc", type="task", task=f"{job_id}-doc", text=f"Read & extract: {name}", secs=MIN_STEP_SECS["doc"])
         else:
-            _content_jobs.put(job)
-            emit(bot="vid", type="task", task=f"{job_id}-vid", text=f"Edit to 9:16: {name}", secs=MIN_STEP_SECS["vid"])
+            start_batch([{**job, "tiktok": "", "shopee": "", "notes": ""}], ["tiktok", "facebook", "instagram"], "slots")
         accepted.append({"job": job_id, "name": name, "team": "compliance" if is_doc else "content"})
     return {"accepted": accepted, "skipped": skipped}
 
@@ -722,51 +728,197 @@ def run_job(job: dict) -> None:
     emit(bot="risk", type="done", task=f"{jid}-risk", level=level, url=f"/reports/{jid}.html", text=f"{name}: {verdict}")
 
 
-def run_content_job(job: dict) -> None:
-    jid, name = job["id"], job["name"]
-    out = OUTBOX / jid
+# ───────────────────────── Content Hub ─────────────────────────
+BATCHES = HERE / "data" / "content_hub" / "batches"
 
-    # Video Editor
-    t0 = time.time()
+
+def start_batch(items: list[dict], platforms: list[str], when: str) -> str:
+    bid = uuid.uuid4().hex[:10]
+    _content_jobs.put({"id": bid, "name": f"{len(items)} video(s)", "items": items, "platforms": platforms, "when": when})
+    for it in items:
+        emit(bot="jp", type="task", task=f"{it['id']}-jp", text=f"Edit + review: {it['name']}", secs=MIN_STEP_SECS["jp"])
+    return bid
+
+
+@app.post("/api/content/batch")
+async def content_batch(files: list[UploadFile] = File(...), meta: str = Form("[]"), platforms: str = Form("tiktok,facebook,instagram"),
+                        when: str = Form("slots")):
+    import json as _json
     try:
-        media = content.make_vertical(job["path"], out)
-    except Exception as exc:
-        _paced("vid", t0)
-        emit(bot="vid", type="done", task=f"{jid}-vid", ok=False, text=f"Couldn't edit {name}: {exc}")
+        rows = _json.loads(meta)
+    except ValueError:
+        rows = []
+    plats = [p for p in platforms.split(",") if p in content_hub.PLATFORMS] or ["tiktok"]
+    items = []
+    for i, f in enumerate(files):
+        name = Path(f.filename or "video").name
+        ext = Path(name).suffix.lower()
+        data = await f.read()
+        if ext not in content.VIDEO_EXT or len(data) > MAX_MEDIA_BYTES:
+            continue
+        vid = uuid.uuid4().hex[:10]
+        path = UPLOADS / f"{vid}{ext}"
+        path.write_bytes(data)
+        r = rows[i] if i < len(rows) and isinstance(rows[i], dict) else {}
+        items.append({"id": vid, "name": name, "path": path, "tiktok": str(r.get("tiktok", "")).strip(),
+                      "shopee": str(r.get("shopee", "")).strip(), "notes": str(r.get("notes", "")).strip()[:500]})
+    if not items:
+        return {"ok": False, "error": "Walang video na natanggap (mp4, mov, m4v, webm)."}
+    bid = start_batch(items, plats, when if when in ("slots", "now") else "slots")
+    return {"ok": True, "batch": bid, "videos": len(items)}
+
+
+def run_content_batch(job: dict) -> None:
+    bid, items, plats = job["id"], job["items"], job["platforms"]
+    videos, posts = [], []
+    for it in items:
+        vid, name = it["id"], it["name"]
+        out = OUTBOX / vid
+        # JP: edit + review
+        t0 = time.time()
+        try:
+            media = content.make_vertical(it["path"], out)
+        except Exception as exc:
+            _paced("jp", t0)
+            emit(bot="jp", type="done", task=f"{vid}-jp", ok=False, text=f"Couldn't edit {name}: {exc}")
+            continue
+        review = content_hub.review_edit(it["path"], media, out)
+        _paced("jp", t0)
+        emit(bot="jp", type="done", task=f"{vid}-jp", level="MEDIUM" if review else "LOW",
+             text=f"{name}: {media['note']}" + (f" · review: {len(review)} note(s)" if review else " · review ✅"))
+        # Asher: SEO caption + link checks
+        emit(bot="asher", type="task", task=f"{vid}-asher", text=f"SEO caption + link check: {name}", secs=MIN_STEP_SECS["asher"])
+        t0 = time.time()
+        product = content_hub.product_name(it["tiktok"] or it["shopee"])
+        cap = content_hub.seo_caption(name, it["notes"], product)
+        links = []
+        for kind, url in (("TikTok Shop", it["tiktok"]), ("Shopee", it["shopee"])):
+            st, notes = content_hub.check_link(url, "tiktok" if kind == "TikTok Shop" else "shopee")
+            links.append([kind, url, st, notes])
+        bad = [l for l in links if l[2] in ("warn", "bad")]
+        _paced("asher", t0)
+        emit(bot="asher", type="done", task=f"{vid}-asher", level="MEDIUM" if bad else "LOW",
+             text=f"“{cap['hook']}” (+{len(cap['hashtags'])} hashtags, by {cap['by']})" + (f" · ⚠️ {len(bad)} link issue(s)" if bad else ""))
+        tiktok = it["tiktok"] if links[0][2] in ("ok", "warn") else ""
+        shopee = it["shopee"] if links[1][2] in ("ok", "warn") else ""
+        file_name = f"{Path(name).stem}_9x16.mp4"
+        for plat in plats:
+            caption, comment = content_hub.platform_caption(cap, plat, shopee, tiktok)
+            posts.append({"id": content_hub.new_id(), "batch": bid, "video": vid, "job": vid, "platform": plat, "caption": caption,
+                          "comment": comment, "tiktok_link": tiktok, "shopee_link": shopee, "media": media["media"],
+                          "file_name": file_name, "name": name, "status": "new"})
+        # Shane + Jacob
+        if "tiktok" in plats:
+            emit(bot="shane", type="task", task=f"{vid}-shane", text=f"TikTok post + basket: {name}", secs=MIN_STEP_SECS["shane"])
+            time.sleep(MIN_STEP_SECS["shane"])
+            emit(bot="shane", type="done", task=f"{vid}-shane",
+                 text=f"{name}: TikTok caption ready" + (" · 🛒 basket product added to the post plan" if tiktok else " · no TikTok Shop link"))
+        if {"facebook", "instagram"} & set(plats):
+            emit(bot="jacob", type="task", task=f"{vid}-jacob", text=f"Shopee link on FB/IG: {name}", secs=MIN_STEP_SECS["jacob"])
+            time.sleep(MIN_STEP_SECS["jacob"])
+            emit(bot="jacob", type="done", task=f"{vid}-jacob",
+                 text=f"{name}: " + ("🛒 Shopee link in the Facebook caption + Instagram first comment" if shopee else "captions ready (no Shopee link)"))
+        videos.append({"id": vid, "job": vid, "name": name, "file_name": file_name, "media": media["media"], "review": review, "links": links})
+    if not videos:
         return
-    _paced("vid", t0)
-    secs = f", {media['seconds']:.0f}s" if media["seconds"] else ""
-    emit(bot="vid", type="done", task=f"{jid}-vid", text=f"{name}: {media['note']}{secs}")
-
-    # Caption Writer
-    emit(bot="cap", type="task", task=f"{jid}-cap", text=f"Write captions: {name}", secs=MIN_STEP_SECS["cap"])
+    # Ashley: one slot per video, shared by its platforms
+    emit(bot="ashley", type="task", task=f"{bid}-ashley", text=f"Pick posting slots: {len(videos)} video(s)", secs=MIN_STEP_SECS["ashley"])
     t0 = time.time()
-    cap = content.write_caption(name)
-    _paced("cap", t0)
-    emit(bot="cap", type="done", task=f"{jid}-cap", text=f"“{cap['hook']}” (+{len(cap['hashtags'])} hashtags, by {cap['by']})")
+    with content_hub._lock:
+        allp = content_hub.load_posts()
+        taken = {p["slot"] for p in allp if p["status"] in ("scheduled", "handoff")}
+        if job.get("when") == "now":
+            now = datetime.now(content.MANILA)
+            slots = [now + timedelta(minutes=2 * i) for i in range(len(videos))]
+        else:
+            slots = content_hub.next_slots(len(videos), taken)
+        slot_of = {v["id"]: s.isoformat() for v, s in zip(videos, slots)}
+        for p in posts:
+            p.update(slot=slot_of[p["video"]], status="scheduled", auto=content_hub.meta_ready(p["platform"]))
+        content_hub.save_posts(allp + posts)
+    BATCHES.mkdir(parents=True, exist_ok=True)
+    (BATCHES / f"{bid}.json").write_text(json.dumps(videos, ensure_ascii=False, default=str))
+    _paced("ashley", t0)
+    first = min(slots)
+    emit(bot="ashley", type="done", task=f"{bid}-ashley", url=f"/content/{bid}",
+         text=f"{len(videos)} video(s) scheduled from {content.fmt_slot(first)} ({', '.join(content_hub.PLATFORMS[p] for p in plats)})")
+    emit(bot="david", type="log", text=f"Got it: {len(posts)} post(s) queued. FB/IG post by themselves when Meta is connected; TikTok goes to Claude.")
 
-    # Scheduler
-    emit(bot="sched", type="task", task=f"{jid}-sched", text=f"Schedule post: {name}", secs=MIN_STEP_SECS["sched"])
-    t0 = time.time()
-    slot = content.next_slot(CALENDAR, jid, name)
-    _paced("sched", t0)
-    emit(bot="sched", type="done", task=f"{jid}-sched", text=f"{name}: booked {content.fmt_slot(slot)}")
 
-    # Poster
-    emit(bot="post", type="task", task=f"{jid}-post", text=f"Prepare post: {name}", secs=MIN_STEP_SECS["post"])
-    t0 = time.time()
-    content.package(out, name, media, cap, slot)
-    (REPORTS / f"{jid}.html").write_text(content.render_page(jid, name, media, cap, slot), encoding="utf-8")
-    _paced("post", t0)
-    emit(bot="post", type="done", task=f"{jid}-post", url=f"/reports/{jid}.html",
-         text=f"{name}: ready to post {content.fmt_slot(slot)} 📦")
+@app.get("/content/{bid}", response_class=HTMLResponse)
+def content_page(bid: str):
+    if not re.fullmatch(r"[0-9a-f]{10}", bid) or not (BATCHES / f"{bid}.json").exists():
+        raise HTTPException(404)
+    videos = json.loads((BATCHES / f"{bid}.json").read_text())
+    posts = [p for p in content_hub.load_posts() if p["batch"] == bid]
+    return HTMLResponse(content_hub.render_batch(bid, posts, videos))
+
+
+@app.get("/api/content/posts")
+def content_posts():
+    return content_hub.load_posts()[-300:]
+
+
+@app.post("/api/content/post/{pid}/{action}")
+def content_post_action(pid: str, action: str):
+    if action == "done":
+        p = content_hub.update_post(pid, status="posted", error="")
+        return {"ok": bool(p), "message": "Marked as posted ✅" if p else "Not found"}
+    if action == "now":
+        p = content_hub.update_post(pid, slot=datetime.now(content.MANILA).isoformat(), status="scheduled", error="")
+        return {"ok": bool(p), "message": "David will post it within a minute 🚀" if p else "Not found"}
+    raise HTTPException(400)
+
+
+@app.post("/api/meta/test")
+def meta_test():
+    try:
+        return content_hub.meta_test()
+    except Exception as exc:
+        return {"ok": False, "message": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+
+def run_due_post(p: dict) -> None:
+    plat = content_hub.PLATFORMS[p["platform"]]
+    video = OUTBOX / p["job"] / p["media"]
+    if p["platform"] in ("facebook", "instagram") and content_hub.meta_ready(p["platform"]):
+        content_hub.update_post(p["id"], status="posting")
+        emit(bot="david", type="task", task=f"{p['id']}-david", text=f"Posting on {plat}: {p['name']}", secs=20)
+        try:
+            url = (content_hub.post_facebook_reel(video, p["caption"]) if p["platform"] == "facebook"
+                   else content_hub.post_instagram_reel(video, p["caption"], p.get("comment", "")))
+            content_hub.update_post(p["id"], status="posted", post_url=url, error="")
+            emit(bot="david", type="done", task=f"{p['id']}-david", url=url or f"/content/{p['batch']}", text=f"Posted on {plat}: {p['name']} ✅")
+        except Exception as exc:
+            content_hub.update_post(p["id"], status="failed", error=str(exc)[:300])
+            emit(bot="david", type="done", task=f"{p['id']}-david", ok=False, url=f"/content/{p['batch']}",
+                 text=f"{plat} post failed: {str(exc)[:120]}. Open the batch page to hand it to Claude.")
+        return
+    content_hub.update_post(p["id"], status="handoff")
+    emit(bot="david", type="task", task=f"{p['id']}-david", text=f"Hand to Claude: {plat} · {p['name']}", secs=4)
+    time.sleep(4)
+    emit(bot="david", type="done", task=f"{p['id']}-david", level="MEDIUM", url=f"/content/{p['batch']}",
+         text=f"⏰ Time to post on {plat}: {p['name']}. Open the page → Copy Claude prompt → paste it in Claude in Chrome")
+
+
+def david_loop() -> None:
+    """Checks the schedule every 30 seconds and posts what is due."""
+    while True:
+        try:
+            now = datetime.now(content.MANILA)
+            due = [p for p in content_hub.load_posts() if p.get("status") == "scheduled" and datetime.fromisoformat(p["slot"]) <= now]
+            for p in due:
+                run_due_post(p)
+        except Exception as exc:
+            emit(bot="mgr", type="log", text=f"Autopost error: {exc}")
+        time.sleep(30)
 
 
 def content_worker() -> None:
     while True:
         job = _content_jobs.get()
         try:
-            run_content_job(job)
+            run_content_batch(job)
         except Exception as exc:
             emit(bot="mgr", type="log", text=f"Error on {job['name']}: {exc}")
 
@@ -782,6 +934,7 @@ def worker() -> None:
 
 threading.Thread(target=worker, daemon=True).start()
 threading.Thread(target=content_worker, daemon=True).start()
+threading.Thread(target=david_loop, daemon=True).start()
 threading.Thread(target=affiliate_worker, daemon=True).start()
 
 

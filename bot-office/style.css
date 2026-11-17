@@ -138,3 +138,9 @@ span.avatar::before, span.avatar::after { content: ""; position: absolute; top: 
 .stats span { white-space: nowrap; }
 @media (max-width: 1500px) { .brand .hint { display: none; } }
 .affform label.drivebox { background: #1d1840; border: 1px dashed #6b5fd0; border-radius: 12px; padding: 10px; }
+
+.contbtn { background: #2ee6c9; color: #062a26; border: 0; border-radius: 8px; padding: 6px 12px; font-weight: 800; cursor: pointer; }
+.crow { background: #1d1840; border: 1px solid #3a3270; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.crow b { font-size: 13px; color: #fff; word-break: break-all; }
+.crow input { width: 100%; }
+fieldset.plats { border: 1px solid #3a3270; border-radius: 12px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; color: #cfc9ff; font-size: 13px; }

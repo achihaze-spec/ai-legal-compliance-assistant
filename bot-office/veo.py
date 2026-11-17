@@ -35,7 +35,13 @@ DEFAULTS = {
     "ai_provider": "claude",        # claude | ollama_cloud | ollama_local (ai.py)
     "ollama_model": "gemma4:31b",
     "ollama_api_key": "",
-    "ollama_url": "http://localhost:11434",             # local Google Drive for desktop folder for case outputs (outputs.py)
+    "ollama_url": "http://localhost:11434",
+    "post_slots": "07:00, 12:00, 15:00, 20:00, 23:00",  # Content Hub posting times (Asia/Manila)
+    "caption_rules": "",            # Asher's extra caption rules ("My rules")
+    "meta_page_id": "",             # Facebook Page for auto-posting Reels
+    "meta_page_token": "",          # Page access token (secret)
+    "meta_ig_user_id": "",          # Instagram Professional account linked to the Page
+    "meta_graph_version": "v23.0",             # local Google Drive for desktop folder for case outputs (outputs.py)
 }
 
 
@@ -53,7 +59,7 @@ def save(new: dict) -> dict:
     for k, v in new.items():
         if k not in DEFAULTS:
             continue
-        if k in ("api_key", "ollama_api_key") and (not v or "•" in v):
+        if k in ("api_key", "ollama_api_key", "meta_page_token") and (not v or "•" in v):
             continue  # masked value sent back unchanged
         if isinstance(DEFAULTS[k], float):
             v = float(v)
@@ -71,7 +77,7 @@ def save(new: dict) -> dict:
 
 def public(s: dict | None = None) -> dict:
     s = dict(s or load())
-    for f in ("api_key", "ollama_api_key"):
+    for f in ("api_key", "ollama_api_key", "meta_page_token"):
         k = s.get(f, "")
         s[f] = (k[:4] + "•" * 8 + k[-4:]) if len(k) > 10 else ("•" * len(k))
     s["configured"] = configured(s)

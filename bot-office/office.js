@@ -137,15 +137,17 @@
   // volleyball court, loungers and palm trees, with the sea all around.
   const HUT_D = 8;                     // the huts cover y < 8
   const WALL_H = 74;
+  const HUTS = [[0, 10], [11, W]];   // Compliance Hub, Content Hub (x ranges)
   const zoneOf = (x, y) => (y >= HUT_D ? 'beach' : x >= 10 ? 'content' : 'compliance');
 
   // Low bamboo railings you can't walk through (with doorways), and the volleyball net.
   const blockedEdges = new Set();
   const edgeKey = (a, b, c, d) => (a < c || (a === c && b < d) ? `${a},${b}|${c},${d}` : `${c},${d}|${a},${b}`);
   const railings = [];
-  for (let x = 0; x < W; x++) if (![4, 5, 15, 16].includes(x)) { blockedEdges.add(edgeKey(x, 7, x, 8)); railings.push({ type: 'railH', x, y: 8 }); }
+  for (let x = 0; x < W; x++) if (![4, 5, 10, 15, 16].includes(x)) { blockedEdges.add(edgeKey(x, 7, x, 8)); railings.push({ type: 'railH', x, y: 8 }); }
   for (let y = 0; y < 8; y++) if (![5, 6].includes(y)) { blockedEdges.add(edgeKey(9, y, 10, y)); railings.push({ type: 'railV', x: 10, y }); }
   for (let y = 10; y <= 14; y++) blockedEdges.add(edgeKey(15, y, 16, y));
+  for (let y = 0; y < HUT_D; y++) blockedEdges.add(edgeKey(10, y, 11, y));   // Content Hub's own left wall
 
   // Furniture. block:true marks the cells it covers as solid; flat:true is painted on the ground.
   const F = [];
@@ -158,13 +160,13 @@
   add({ type: 'cabinet', x: 0.05, y: 6.05, w: 0.7, d: 0.9, h: 40 });
   add({ type: 'plant', x: 9.0, y: 0.2, w: 0.7, d: 0.7, h: 14 });
   add({ type: 'plant', x: 3.1, y: 6.9, w: 0.7, d: 0.7, h: 14 });
-  // Content Studio
-  add({ type: 'reelShelf', x: 11.1, y: 0.05, w: 2.6, d: 0.6, h: 52 });
-  add({ type: 'greenscreen', x: 19.6, y: 0.05, w: 4.2, d: 0.2, h: 80 });
-  add({ type: 'camera', x: 21.25, y: 3.25, w: 0.5, d: 0.5, h: 40 });
-  add({ type: 'ringlight', x: 22.3, y: 2.3, w: 0.4, d: 0.4, h: 52 });
+  // Content Hub (its own nipa hut)
+  add({ type: 'reelShelf', x: 11.2, y: 0.05, w: 2.6, d: 0.6, h: 52 });
+  add({ type: 'greenscreen', x: 21.5, y: 0.05, w: 2.4, d: 0.2, h: 80 });
+  add({ type: 'camera', x: 22.25, y: 3.25, w: 0.5, d: 0.5, h: 40 });
+  add({ type: 'ringlight', x: 23.2, y: 2.3, w: 0.4, d: 0.4, h: 52 });
   add({ type: 'plant', x: 23.1, y: 6.2, w: 0.7, d: 0.7, h: 14 });
-  add({ type: 'plant', x: 18.1, y: 6.9, w: 0.7, d: 0.7, h: 14 });
+  add({ type: 'plant', x: 11.15, y: 6.9, w: 0.7, d: 0.7, h: 14 });
   // Beach
   add({ type: 'danceFloor', x: 3.6, y: 10.4, w: 4.8, d: 4.4, flat: true, block: false });
   add({ type: 'court', x: 12, y: 9.6, w: 8, d: 5.8, flat: true, block: false });
@@ -193,10 +195,17 @@
   addDesk('reg', 4, 3, { zone: 'compliance' });
   addDesk('risk', 7, 3, { zone: 'compliance' });
   addDesk('mgr', 6, 5, { zone: 'manager' });
-  addDesk('vid', 11, 3, { dual: true, zone: 'content' });
-  addDesk('cap', 14, 3, { dual: true, zone: 'content' });
-  addDesk('sched', 17, 3, { zone: 'content' });
-  addDesk('post', 11, 6, { zone: 'content' });
+  addDesk('jp', 12, 2, { dual: true, zone: 'content' });
+  addDesk('ashley', 15, 2, { zone: 'content' });
+  addDesk('david', 18, 2, { zone: 'content' });
+  addDesk('shane', 12, 5, { zone: 'content' });
+  addDesk('jacob', 15, 5, { zone: 'content' });
+  addDesk('asher', 19, 5, { dual: true, zone: 'content' });
+
+  // Mikay and Taks don't have desks: their "home" is the flower arch photo spot on the beach
+  add({ type: 'museArch', x: 19.6, y: 8.35, w: 1.8, d: 0.3, h: 64, block: false });
+  desks.mikay = { seat: { x: 20.1, y: 9.3 } };
+  desks.taks = { seat: { x: 21.0, y: 9.5 } };
 
   const solid = Array.from({ length: W }, () => new Array(H).fill(false));
   for (const f of F) if (f.block) {
@@ -213,6 +222,7 @@
     { x: 13.6, y: 11.3, z: 0, n: 'volley' }, { x: 13.4, y: 13.7, z: 0, n: 'volley' },
     { x: 18.4, y: 11.6, z: 0, n: 'volley' }, { x: 18.6, y: 13.8, z: 0, n: 'volley' },
     { x: 21.55, y: 12.4, z: 9, n: 'lounger' }, { x: 22.95, y: 12.4, z: 9, n: 'lounger' },
+    { x: 20.1, y: 9.3, z: 0, n: 'muse' }, { x: 21.0, y: 9.5, z: 0, n: 'muse' },
     { x: 11.5, y: 14.3, z: 0, n: 'wander' }, { x: 10.8, y: 9.3, z: 0, n: 'wander' }, { x: 21.5, y: 15.3, z: 0, n: 'wander' },
   ];
 
@@ -253,10 +263,22 @@
       role: 'The checker. Sanctions screening (OFAC, UN, EU, UK), Data Privacy Act (RA 10173) and contract checks on the documents, and website checks: domain age, SSL, red flags and the privacy page.' },
     { id: 'risk', name: 'Charlie', title: 'Risk Scout', team: 'compliance', color: '#ff8a3d',
       role: 'The reporter. Gives the result (STOP, REJECT, ESCALATE, PENDING, EDD, INCOMPLETE or CLEAR*) and writes the HTML and Word report, saved to your Drive as dd.mm.yy_Merchant name.' },
-    { id: 'vid', name: 'Video Editor', title: 'Content team', team: 'content', color: '#ff6fae', role: 'Cuts and edits the videos (9:16), affiliate drafts and finals.' },
-    { id: 'cap', name: 'Caption Writer', title: 'Content team', team: 'content', color: '#ffd23d', role: 'Hooks, captions and hashtags, with the platform rules applied.' },
-    { id: 'sched', name: 'Scheduler', title: 'Content team', team: 'content', color: '#a77bff', role: 'Plans the posting calendar.' },
-    { id: 'post', name: 'Poster', title: 'Content team', team: 'content', color: '#2ee6c9', role: 'Packages and publishes the posts.' },
+    { id: 'jp', name: 'JP', title: 'Video Editor', team: 'content', color: '#ff6fae',
+      role: 'Edits every clip to 9:16 1080x1920 (also the Affiliate Studio drafts and finals), then reviews the edit: length, sound and quality.' },
+    { id: 'ashley', name: 'Ashley', title: 'Scheduler', team: 'content', color: '#a77bff',
+      role: 'Picks the posting slots (Asia/Manila; set the times in ⚙️) and spreads the videos across the days.' },
+    { id: 'david', name: 'David', title: 'Autopost', team: 'content', color: '#2ee6c9',
+      role: 'Posts at each slot: Facebook and Instagram Reels go up by themselves through the Meta API; TikTok posts are handed to Claude in Chrome with a ready-made prompt.' },
+    { id: 'shane', name: 'Shane', title: 'Affiliate · TikTok', team: 'content', color: '#ffd23d',
+      role: 'Prepares the TikTok post: caption with "check the basket" and #ad, and the TikTok Shop product for the yellow basket.' },
+    { id: 'jacob', name: 'Jacob', title: 'Affiliate · Shopee', team: 'content', color: '#ff7a45',
+      role: 'Adds your Shopee affiliate link: in the Facebook caption, and as the first comment on Instagram (IG caption links are not clickable).' },
+    { id: 'asher', name: 'Asher', title: 'Content Manager', team: 'content', color: '#7fd4ff',
+      role: 'Writes the SEO captions and hashtags (with your caption rules), checks every affiliate link, and keeps the whole Content Hub on track.' },
+    { id: 'mikay', name: 'Mikay', title: 'Muse', team: 'muse', color: '#ff7eb6',
+      role: 'The office muse. No tasks, no deadlines: she just looks beautiful, poses at the flower arch, and lifts everyone\'s mood ✨' },
+    { id: 'taks', name: 'Taks', title: 'Resident Pogi', team: 'muse', color: '#ffb02e',
+      role: 'No job description. His only task is being gwapo 😎 (and maybe flexing at the volleyball court).' },
     { id: 'mgr', name: 'Hazel', title: 'Bot Manager', team: 'manager', color: '#ff5d8f',
       role: 'Helps everyone and sends the alerts, like "🛑 possible sanctions TRUE MATCH. Escalate to the MLRO now. No tip-off."' },
   ];
@@ -269,7 +291,8 @@
       'Compliant ✅', 'Who still writes "herein"?', 'Screening names…', 'Footnote of doom 😱', 'Need a clause ref',
       'GIS says 60%…', 'Checklist ✅❌✅'],
     content: ['Hook first!', 'Rendering…', 'Cut! That\'s a wrap 🎬', 'Caption on point', 'Color grade 🎨', '3… 2… 1… post!',
-      'Make it pop ✨', 'Golden hour shot 🌅', '#fyp energy'],
+      'Make it pop ✨', 'Golden hour shot 🌅', '#fyp energy', 'Check the basket 🛒', 'Link in the comments!', 'Slot booked: 8 PM 📅',
+      'Posting to the Page…', 'SEO keywords first', 'Affiliate link ✅'],
     chat: [['You done yet?', 'Almost! You?'], ['Volleyball later?', 'You\'re on! 🏐'], ['New KYB just dropped', 'I got this'],
       ['This one\'s going viral', 'Said every video ever 😂'], ['Coffee?', 'Iced, please 🧊☕'], ['Nice edit!', 'Thanks! 🥹'],
       ['Did you read the T&Cs?', 'Nobody reads the T&Cs.'], ['Dance floor at 5?', 'Wouldn\'t miss it 💃']],
@@ -277,6 +300,10 @@
     play: ['Spike! 🏐', 'Nice dig!', 'Mine! Mine!', 'Point for us!', 'Set it up!', 'Sand in my shoes 😂', 'Rematch?'],
     dance: ['Let\'s dance! 💃', 'Watch this move 🕺', 'This is my song! 🎶', 'Budots time 😂', 'Cha-cha slide!', 'Turn it up! 🔊'],
     relax: ['Ahh, sea breeze 😌', 'Five more minutes 😴', 'Coconut break 🥥', 'Sunset mode 🌅', 'Don\'t wake me 😎'],
+    mikay: ['Ganda lang ako dito 💅', 'Selfie muna 📸', 'Hydrate, babes ✨', 'Golden hour = my hour 🌅', 'Pose ulit! 💃',
+      'Did someone say photoshoot?', 'Glow up, not show up ✨', 'Ang init, pero ang ganda pa rin 😌'],
+    taks: ['Pogi problems 😎', 'Gwapo lang, walang ginagawa', 'Flex muna 💪', 'Sunglasses on 😎', 'Ang hirap maging gwapo',
+      'Hair flip, check ✔', 'Am I distracting you?', 'Beach bod loading… 💪'],
     jokes: [['Why was the contract sad?', 'It lost its appeal 😢'], ['Lawyer\'s favorite drink?', 'Subpoena colada 🍹'],
       ['Why did the UBO hide?', 'Too many layers 🧅'], ['Why did the video go viral?', 'It had a great hook 🎣'],
       ['Why don\'t crabs share files?', 'They\'re shellfish 🦀'], ['What did the ocean say to the beach?', 'Nothing, it just waved 🌊'],
@@ -318,16 +345,19 @@
       { bot: 'risk', verb: 'Risk report', secs: 8 },
     ],
     content: [
-      { bot: 'vid', verb: 'Edit video', secs: 11 },
-      { bot: 'cap', verb: 'Write captions', secs: 6 },
-      { bot: 'sched', verb: 'Schedule post', secs: 5 },
-      { bot: 'post', verb: 'Publish', secs: 5 },
+      { bot: 'jp', verb: 'Edit + review', secs: 10 },
+      { bot: 'asher', verb: 'SEO caption + link check', secs: 6 },
+      { bot: 'shane', verb: 'TikTok post + basket', secs: 4 },
+      { bot: 'jacob', verb: 'Shopee link on FB/IG', secs: 4 },
+      { bot: 'ashley', verb: 'Pick the slot', secs: 4 },
+      { bot: 'david', verb: 'Autopost', secs: 5 },
     ],
   };
   const stats = { done: 0 };
 
   function assign(botId, text, opts = {}) {
     const b = botById[botId]; if (!b) return null;
+    if (b.team === 'muse') { say(b, b.id === 'mikay' ? 'Sorry, muse lang ako 💅' : 'Gwapo lang ako, walang trabaho 😎', 2.5); return null; }
     const t = { text, secs: opts.secs || 8, progress: 0, next: opts.next || null, file: opts.file || null,
       external: !!opts.external, id: opts.id || null, finished: false, result: null };
     b.queue.push(t);
@@ -415,7 +445,7 @@
         const free = spots.filter((s) => !spotTaken(s, b));
         const s = rand(free);
         if (s) { b.spot = s; walkTo(b, s.x, s.y, s.z); }
-        if (Math.random() < 0.5) setTimeout(() => !b.task && say(b, rand(LINES.idle)), 2500);
+        if (Math.random() < 0.5) setTimeout(() => !b.task && say(b, rand(LINES[b.id] || LINES.idle)), 2500);
       }
     }
   }
@@ -507,7 +537,17 @@
         box(x + .45, y + .45, .6, .2, 2, h, '#3a3a52');
         if (f.zone === 'compliance') box(x + 1.25, y + .4, .3, .35, 5, h, '#fffaf0');
         else if (f.zone === 'manager') { box(x + 1.2, y + .35, .35, .4, 7, h, '#ffd23d'); box(x + 1.22, y + .37, .3, .35, 3, h + 7, '#4da3ff'); }
-        else { const p = iso(x + 1.45, y + .5, h + 4); ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fillStyle = '#ffd23d'; ctx.fill(); }
+        else if (f.owner === 'shane') {   // phone on a stand + a little yellow basket
+          box(x + 1.3, y + .45, .1, .1, 8, h, '#2a2a38'); box(x + 1.22, y + .4, .25, .06, 14, h + 6, '#25212f'); quadY(y + .46 + .001, x + 1.24, x + 1.45, h + 8, h + 19, '#ff2d55');
+          box(x + 1.2, y + .1, .35, .25, 6, h, '#ffd23d', { top: '#ffe680' });
+        } else if (f.owner === 'jacob') {  // orange shopping bag
+          box(x + 1.2, y + .35, .4, .3, 14, h, '#ff7a45', { top: '#ffa07a' });
+          const p = iso(x + 1.4, y + .5, h + 16); ctx.beginPath(); ctx.arc(p.x, p.y, 4, Math.PI, 0); ctx.strokeStyle = '#c4451f'; ctx.lineWidth = 1.5; ctx.stroke();
+        } else if (f.owner === 'ashley') { // desk calendar
+          box(x + 1.2, y + .35, .45, .3, 10, h, '#ffffff'); quadY(y + .65 + .001, x + 1.22, x + 1.63, h + 7, h + 10, '#e84a5f');
+        } else if (f.owner === 'david') {  // phone with a send arrow
+          box(x + 1.25, y + .35, .3, .4, 2, h, '#25212f'); const p = iso(x + 1.4, y + .55, h + 3); ctx.fillStyle = '#2ee6c9'; ctx.font = 'bold 9px sans-serif'; ctx.fillText('➤', p.x - 4, p.y + 3);
+        } else { const p = iso(x + 1.45, y + .5, h + 4); ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fillStyle = f.owner === 'asher' ? '#ffffff' : '#ffd23d'; ctx.fill(); }
         break;
       }
       case 'chair':
@@ -662,6 +702,18 @@
         for (const [cx, cy] of [[-3, 3], [3, 4], [0, 6]]) { ctx.beginPath(); ctx.arc(top.x + cx, top.y + cy, 3.6 * s, 0, 7); ctx.fillStyle = '#6b4a26'; ctx.fill(); }
         break;
       }
+      case 'museArch': {   // flower arch photo spot
+        pole(x, y + .15, 0, h, '#f2e6d0', 3); pole(x + w, y + .15, 0, h, '#f2e6d0', 3);
+        const a = iso(x, y + .15, h), b2 = iso(x + w, y + .15, h), mid = { x: (a.x + b2.x) / 2, y: (a.y + b2.y) / 2 - 22 };
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mid.x, mid.y - 18, b2.x, b2.y); ctx.strokeStyle = '#f2e6d0'; ctx.lineWidth = 4; ctx.stroke();
+        for (let i = 0; i <= 12; i++) {
+          const u = i / 12, px = (1 - u) * (1 - u) * a.x + 2 * u * (1 - u) * mid.x + u * u * b2.x, py = (1 - u) * (1 - u) * a.y + 2 * u * (1 - u) * (mid.y - 18) + u * u * b2.y;
+          circ(px, py, 4.5, ['#ff4f7b', '#ffd23d', '#ff9bd0', '#ffffff'][i % 4]); circ(px + 3, py + 3, 3, '#3dbb69');
+        }
+        const sp = iso(x + w / 2, y + .15, h + 26); ctx.font = '800 10px ui-rounded, system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#ff4f7b'; ctx.fillText('✨ MUSE SPOT ✨', sp.x, sp.y); ctx.textAlign = 'left';
+        break;
+      }
       case 'railH': case 'railV': {
         if (f.type === 'railH') { pole(x + .05, y, 0, 18, BAMBOO, 3); line(iso(x, y, 16), iso(x + 1, y, 16), BAMBOO_D, 5); line(iso(x, y, 16), iso(x + 1, y, 16), BAMBOO, 3.5); line(iso(x, y, 8), iso(x + 1, y, 8), BAMBOO, 2.5); }
         else { pole(x, y + .05, 0, 18, BAMBOO, 3); line(iso(x, y, 16), iso(x, y + 1, 16), BAMBOO_D, 5); line(iso(x, y, 16), iso(x, y + 1, 16), BAMBOO, 3.5); line(iso(x, y, 8), iso(x, y + 1, 8), BAMBOO, 2.5); }
@@ -725,11 +777,13 @@
     poly(rect(foam), '#effcff'); poly(rect(2.15), '#e2c389'); poly(rect(1.8), '#f3dcaa');
     for (const s of SPECKS) { const p = iso(s.x, s.y); ctx.fillStyle = ['#e3c48c', '#fff1cf', '#d8b878'][s.c]; ctx.fillRect(p.x, p.y, 2, 1.5); }
     // bamboo floors of the huts
-    for (let x = 0; x < W; x++) for (let y = 0; y < HUT_D; y++)
-      poly([iso(x, y, 1), iso(x + 1, y, 1), iso(x + 1, y + 1, 1), iso(x, y + 1, 1)], (y % 2) ? '#d9ab6a' : '#cf9f5d');
-    for (let y = 0; y < HUT_D; y += 0.5) line(iso(0, y, 1), iso(W, y, 1), 'rgba(120,80,30,.25)', 1);
-    poly([iso(0, HUT_D, 1), iso(W, HUT_D, 1), iso(W, HUT_D, -4), iso(0, HUT_D, -4)], '#a77a3e');
-    poly([iso(W, 0, 1), iso(W, HUT_D, 1), iso(W, HUT_D, -4), iso(W, 0, -4)], '#8f6631');
+    for (const [x0, x1] of HUTS) {
+      for (let x = x0; x < x1; x++) for (let y = 0; y < HUT_D; y++)
+        poly([iso(x, y, 1), iso(x + 1, y, 1), iso(x + 1, y + 1, 1), iso(x, y + 1, 1)], (y % 2) ? '#d9ab6a' : '#cf9f5d');
+      for (let y = 0; y < HUT_D; y += 0.5) line(iso(x0, y, 1), iso(x1, y, 1), 'rgba(120,80,30,.25)', 1);
+      poly([iso(x0, HUT_D, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x0, HUT_D, -4)], '#a77a3e');
+      poly([iso(x1, 0, 1), iso(x1, HUT_D, 1), iso(x1, HUT_D, -4), iso(x1, 0, -4)], '#8f6631');
+    }
   }
   function plank(text, plane, p, a1, a2, z1, z2, size = 14) {
     // a wooden sign board on the x = p (plane 'x') or y = p (plane 'y') plane
@@ -741,38 +795,47 @@
     ctx.fillStyle = '#ffe9b0'; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 2; ctx.fillText(text, 0, 1); ctx.restore();
   }
   function drawHutWalls() {
-    // woven bamboo back walls
-    box(-0.25, -0.25, W + 0.25, 0.25, WALL_H, 0, '#b88446', { left: '#cf9f5d', top: '#8a5a2b' });
-    box(-0.25, 0, 0.25, HUT_D, WALL_H, 0, '#b88446', { right: '#bf8d4e', top: '#8a5a2b' });
-    for (let x = 0; x < W; x += 0.5) quadY(0.001, x, x + .05, 0, WALL_H, 'rgba(110,70,25,.35)');
-    for (let y = 0; y < HUT_D; y += 0.5) quadX(0.001, y, y + .05, 0, WALL_H, 'rgba(110,70,25,.35)');
-    for (const z of [22, 48]) { quadY(0.002, 0, W, z, z + 3, 'rgba(110,70,25,.35)'); quadX(0.002, 0, HUT_D, z, z + 3, 'rgba(110,70,25,.35)'); }
+    // woven bamboo back walls (each hut has its own)
+    for (const [x0, x1] of HUTS) {
+      box(x0 - 0.25, -0.25, x1 - x0 + 0.25, 0.25, WALL_H, 0, '#b88446', { left: '#cf9f5d', top: '#8a5a2b' });
+      const sideH = x0 === 0 ? WALL_H : 26;   // the Content Hub's side wall is low so the Compliance Hub stays visible
+      box(x0 - 0.25, 0, 0.25, HUT_D, sideH, 0, '#b88446', { right: '#bf8d4e', top: '#8a5a2b' });
+      for (let x = x0; x < x1; x += 0.5) quadY(0.001, x, x + .05, 0, WALL_H, 'rgba(110,70,25,.35)');
+      for (let y = 0; y < HUT_D; y += 0.5) quadX(x0 + 0.001, y, y + .05, 0, sideH, 'rgba(110,70,25,.35)');
+      for (const z of [22, 48]) { quadY(0.002, x0, x1, z, z + 3, 'rgba(110,70,25,.35)'); if (z < sideH) quadX(x0 + 0.002, 0, HUT_D, z, z + 3, 'rgba(110,70,25,.35)'); }
+    }
     // windows looking out to the sea
-    for (const wx of [5.0, 7.3, 14.3, 16.6]) {
+    for (const wx of [5.0, 7.3, 18.6]) {
       quadY(0.003, wx, wx + 1.6, 28, 62, '#7a4a22');
       quadY(0.004, wx + .1, wx + 1.5, 31, 59, '#8fdcf2'); quadY(0.005, wx + .1, wx + 1.5, 31, 40, '#3fb3d6');
       quadY(0.006, wx + .77, wx + .83, 31, 59, '#7a4a22');
     }
-    for (const wy of [1.4, 3.6]) { quadX(0.003, wy, wy + 1.5, 28, 62, '#7a4a22'); quadX(0.004, wy + .1, wy + 1.4, 31, 59, '#8fdcf2'); quadX(0.005, wy + .1, wy + 1.4, 31, 40, '#3fb3d6'); }
+    for (const [hx, wy] of [[0, 1.4], [0, 3.6]]) { quadX(hx + 0.003, wy, wy + 1.5, 28, 62, '#7a4a22'); quadX(hx + 0.004, wy + .1, wy + 1.4, 31, 59, '#8fdcf2'); quadX(hx + 0.005, wy + .1, wy + 1.4, 31, 40, '#3fb3d6'); }
     // content calendar board
-    quadY(0.003, 10.4, 13.4, 30, 66, '#fff6e6');
+    quadY(0.003, 14.5, 17.5, 30, 66, '#fff6e6');   // Ashley's posting calendar
     for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) {
-      const cx = 10.55 + c * .56, z = 61 - r * 10;
+      const cx = 14.65 + c * .56, z = 61 - r * 10;
       quadY(0.004, cx, cx + .46, z - 7, z, (r * 5 + c + Math.floor(stats.done / 2)) % 4 === 0 ? ['#ff6fae', '#ffd23d', '#2ee6c9', '#a77bff'][(r + c) % 4] : '#eadfca');
     }
   }
   function drawRoof() {
-    // thatched nipa roof over the back of the huts (drawn last so it sits on top)
+    // thatched nipa roof over the back of each hut (drawn last so it sits on top)
     const z0 = WALL_H - 4, z1 = WALL_H + 36;
-    poly([iso(-0.7, -0.7, z1), iso(W + 0.5, -0.7, z1), iso(W + 0.5, 1.0, z0), iso(1.0, 1.0, z0)], THATCH);
-    poly([iso(-0.7, -0.7, z1), iso(1.0, 1.0, z0), iso(1.0, HUT_D + 0.4, z0), iso(-0.7, HUT_D + 0.4, z1)], shade(THATCH, -0.08));
-    for (let x = 1.1; x < W + 0.5; x += 0.22) line(iso(x - 1.6, -0.7, z1), iso(x, 1.0, z0), THATCH_D, 1);
-    for (let y = 1.1; y < HUT_D + 0.4; y += 0.22) line(iso(-0.7, y - 1.6, z1), iso(1.0, y, z0), THATCH_D, 1);
-    for (let x = 1.0; x < W + 0.5; x += 0.12) { const p = iso(x, 1.0, z0); line(p, { x: p.x, y: p.y + 4 + ((x * 31) % 4) }, THATCH_D, 2); }
-    for (let y = 1.0; y < HUT_D + 0.4; y += 0.12) { const p = iso(1.0, y, z0); line(p, { x: p.x, y: p.y + 4 + ((y * 31) % 4) }, THATCH_D, 2); }
-    line(iso(-0.7, -0.7, z1), iso(W + 0.5, -0.7, z1), '#8a6427', 4); line(iso(-0.7, -0.7, z1), iso(-0.7, HUT_D + 0.4, z1), '#8a6427', 4);
+    for (const [a, b] of HUTS) {
+      const bx = b + 0.4;
+      poly([iso(a - 0.7, -0.7, z1), iso(bx, -0.7, z1), iso(bx, 1.0, z0), iso(a + 1.0, 1.0, z0)], THATCH);
+      if (a === 0) poly([iso(a - 0.7, -0.7, z1), iso(a + 1.0, 1.0, z0), iso(a + 1.0, HUT_D + 0.4, z0), iso(a - 0.7, HUT_D + 0.4, z1)], shade(THATCH, -0.08));
+      for (let x = a + 1.1; x < bx; x += 0.22) line(iso(x - 1.6, -0.7, z1), iso(x, 1.0, z0), THATCH_D, 1);
+      if (a === 0) for (let y = 1.1; y < HUT_D + 0.4; y += 0.22) line(iso(a - 0.7, y - 1.6, z1), iso(a + 1.0, y, z0), THATCH_D, 1);
+      for (let x = a + 1.0; x < bx; x += 0.12) { const p = iso(x, 1.0, z0); line(p, { x: p.x, y: p.y + 4 + ((x * 31) % 4) }, THATCH_D, 2); }
+      if (a === 0) for (let y = 1.0; y < HUT_D + 0.4; y += 0.12) { const p = iso(a + 1.0, y, z0); line(p, { x: p.x, y: p.y + 4 + ((y * 31) % 4) }, THATCH_D, 2); }
+      line(iso(a - 0.7, -0.7, z1), iso(bx, -0.7, z1), '#8a6427', 4); if (a === 0) line(iso(a - 0.7, -0.7, z1), iso(a - 0.7, HUT_D + 0.4, z1), '#8a6427', 4);
+      else { // gable end of the Content Hub roof
+        poly([iso(a - 0.7, -0.7, z1), iso(a + 1.0, 1.0, z0), iso(a - 0.25, 1.0, z0 - 2), iso(a - 0.25, -0.25, WALL_H)], shade(THATCH, -0.12));
+      }
+    }
     plank('🌺 EVERCRESTCORP COMPLIANCE HUB', 'y', 0.2, 1.4, 9.4, z0 + 10, z0 + 30, 15);
-    plank('🎬 CONTENT STUDIO', 'y', 0.2, 14.0, 19.0, z0 + 10, z0 + 30, 15);
+    plank('📱 CONTENT HUB', 'y', 0.2, 14.6, 19.6, z0 + 10, z0 + 30, 15);
   }
 
   // ───────────────────────── Drawing: the team (Pixar-style cartoon people) ─────────────────────────
@@ -784,16 +847,24 @@
              top: 'blazer', shirt: '#2f4f9e', inner: '#ffffff', pants: '#2b3556', long: true, shoe: '#2a2333', lips: true },
     risk:  { scale: 1.1, skin: '#d29a70', hair: '#3a2618', style: 'short', eye: '#4a2e1c', top: 'polo', shirt: '#4da3ff',
              pants: '#3b3d63', long: true, shoe: '#2a2333', brows: 'thick' },
+    mikay: { scale: 1.06, skin: '#f2c3a0', hair: '#3a2014', style: 'longwave', eye: '#5a3a22', lashes: true, lips: true, earrings: true,
+             top: 'floral', shirt: '#ffd1e3', flower: '#ff4f7b', pants: '#ffd1e3', shoe: '#ffffff', hibiscus: true },
+    taks:  { scale: 1.14, skin: '#d9a27a', hair: '#120a06', style: 'sidepart', eye: '#3a2416', shades: true, brows: 'thick',
+             top: 'polo', shirt: '#1f2a44', pants: '#e8dcc4', shoe: '#ffffff' },
     mgr:   { scale: 1.06, skin: '#e8b48e', hair: '#4a2a1a', style: 'longwave', eye: '#5a3a22', lashes: true, lips: true,
              top: 'floral', shirt: '#ff5d8f', flower: '#fff1a8', pants: '#f4efe6', shoe: '#c0392b', earrings: true },
-    vid:   { scale: 0.88, skin: '#c98d62', hair: '#1f1410', style: 'curly', eye: '#3a2416', lashes: true,
-             top: 'tee', shirt: '#a77bff', pants: '#3b5bdb', shoe: '#ffffff', clip: '#ffd23d' },
-    cap:   { scale: 0.86, skin: '#f1c7a4', hair: '#7a4a22', style: 'boy', eye: '#3c6e9e', top: 'tee', shirt: '#ffd23d', stripe: '#ff8a3d',
-             pants: '#3f7d4d', shoe: '#e84a5f' },
-    sched: { scale: 0.88, skin: '#e3ad84', hair: '#2e1d16', style: 'pony', eye: '#4a2e1c', lashes: true, top: 'tee', shirt: '#ff7aa8',
-             pants: '#ffffff', shoe: '#a77bff', clip: '#2ee6c9' },
-    post:  { scale: 0.86, skin: '#8d5a3b', hair: '#1a110c', style: 'afro', eye: '#2a1a10', top: 'tee', shirt: '#2ee6c9',
-             pants: '#30406b', shoe: '#ffd23d' },
+    jp:     { scale: 1.08, skin: '#d9a27a', hair: '#1a110c', style: 'short', eye: '#3a2416', headphones: true, brows: 'thick',
+              top: 'tee', shirt: '#ff6fae', stripe: '#ffffff', pants: '#30406b', long: true, shoe: '#ffffff' },
+    ashley: { scale: 1.04, skin: '#f0c4a0', hair: '#6b3f22', style: 'pony', eye: '#4a6b3a', lashes: true, lips: true, clip: '#ffd23d',
+              top: 'tee', shirt: '#a77bff', pants: '#f4efe6', shoe: '#ff7aa8', earrings: true },
+    david:  { scale: 1.1, skin: '#c98d62', hair: '#1f1410', style: 'boy', eye: '#3a2416', beard: true, brows: 'thick',
+              top: 'polo', shirt: '#2ee6c9', pants: '#cdb48a', shoe: '#6b4a26' },
+    shane:  { scale: 1.06, skin: '#e8b48e', hair: '#2a1a12', style: 'curly', eye: '#3a2416', clip: '#ff2d55',
+              top: 'tee', shirt: '#25212f', stripe: '#ffd23d', pants: '#3b3d63', long: true, shoe: '#ffd23d' },
+    jacob:  { scale: 1.1, skin: '#f1c7a4', hair: '#7a4a22', style: 'sidepart', eye: '#3c6e9e', brows: 'thick',
+              top: 'tee', shirt: '#ff7a45', pants: '#3f4a5e', shoe: '#2a2333' },
+    asher:  { scale: 1.1, skin: '#e0ae84', hair: '#2b1d16', style: 'short', eye: '#4a2e1c', beard: false,
+              top: 'blazer', shirt: '#3b3a52', inner: '#d6f2ff', pants: '#2b2b3a', long: true, shoe: '#1e1e2a', brows: 'thick' },
   };
   Object.values(LOOKS).forEach((L) => (L.scale *= 1.3));  // bigger, friendlier characters
   let hoverBot = null, selected = null, filter = 'all';
@@ -938,6 +1009,8 @@
     else if (pose === 'eat') ang = front ? -1.9 + (Math.sin(t * 3 + b.phase) + 1) * 0.35 : 0.1;
     else if (pose === 'lounge') ang = front ? -2.6 : -2.4;
     else if (pose === 'wave') ang = front ? Math.PI - 0.4 + Math.sin(t * 10) * 0.35 : 0.1;
+    else if (pose === 'muse') ang = b.id === 'taks' ? (front ? Math.PI - 0.9 + Math.sin(t * 1.2) * 0.12 : -0.35)   // hand through the hair
+      : (front ? Math.PI - 1.1 + Math.sin(t * 1.5) * 0.1 : -0.55);                                                  // pose, hand to hair
     else ang = front ? 0.08 : -0.08;
     const longSleeve = L.top === 'blazer';
     limb(px, py, ang, 13, 5.2, longSleeve ? sleeve : L.skin, 2.7, L.skin);
@@ -962,25 +1035,42 @@
     const g = ctx.createRadialGradient(4, HEAD_Y - 5, 2, 1, HEAD_Y, HR + 3);
     g.addColorStop(0, shade(L.skin, 0.14)); g.addColorStop(1, shade(L.skin, -0.1));
     ctx.beginPath(); ctx.ellipse(1, HEAD_Y, HR, HR * 1.04, 0, 0, 7); ctx.fillStyle = g; ctx.fill();
+    if (L.beard) {
+      ctx.globalAlpha *= 0.55; ctx.fillStyle = L.hair;
+      ctx.beginPath(); ctx.ellipse(3, HEAD_Y + 6, 11.5, 7.5, 0, 0.05 * Math.PI, 0.95 * Math.PI); ctx.fill();
+      ctx.globalAlpha /= 0.55;
+    }
     face(L, b, t);
     hairFront(L);
     if (L.headset) headset(L);
+    if (L.hibiscus) { for (let k = 0; k < 5; k++) circ(-9 + Math.cos(k * 1.256) * 2.6, HEAD_Y - 9 + Math.sin(k * 1.256) * 2.6, 2.2, '#ff4f7b'); circ(-9, HEAD_Y - 9, 1.2, '#ffd23d'); }
+    if (L.shades) {
+      ctx.fillStyle = '#14141c'; rr(-2.6, HEAD_Y - 3.4, 8.4, 6.4, 2.6); ctx.fill(); rr(5.4, HEAD_Y - 3.6, 9, 6.8, 2.8); ctx.fill();
+      ctx.strokeStyle = '#14141c'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-2.6, HEAD_Y - 1); ctx.lineTo(-9, HEAD_Y - 1); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(7, HEAD_Y - 2.4, 3, 1.2);
+    }
+    if (L.headphones) {
+      const y = HEAD_Y;
+      ctx.strokeStyle = '#2a2a38'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-1, y - 1, HR + 2.5, Math.PI * 1.02, Math.PI * 1.85); ctx.stroke();
+      rr(-14, y - 4, 8, 11, 4); ctx.fillStyle = '#2a2a38'; ctx.fill(); rr(-12.5, y - 2.5, 5, 8, 2.5); ctx.fillStyle = '#ff6fae'; ctx.fill();
+    }
     ctx.restore();
     arms(L, b, t, pose, true);
   }
   function poseOf(b) {
     if (b.path.length) return 'walk';
     const s = desks[b.id] && desks[b.id].seat;
-    if (b.state === 'working' || (s && Math.hypot(b.x - s.x, b.y - s.y) < 0.05)) return 'sit';
+    if (b.team !== 'muse' && (b.state === 'working' || (s && Math.hypot(b.x - s.x, b.y - s.y) < 0.05))) return 'sit';
     if (b.activity && b.activity === b.spot && !b.task) return { eat: 'eat', play: 'volley', dance: 'dance', relax: 'lounge' }[b.actKind] || 'stand';
     if (b.bubble && b.bubble.until > now() && b.waveUntil > now()) return 'wave';
+    if (b.team === 'muse') return 'muse';
     return 'stand';
   }
 
   function drawBot(b, t) {
     const L = LOOKS[b.id];
     const g = iso(b.x, b.y, 0);
-    const dim = filter !== 'all' && b.team !== filter && b.team !== 'manager';
+    const dim = filter !== 'all' && b.team !== filter && b.team !== 'manager' && b.team !== 'muse';
     ctx.globalAlpha = dim ? 0.3 : 1;
     const pose = poseOf(b);
     let lift = 0;
@@ -1005,6 +1095,15 @@
   }
 
   function drawActivity(b, t) {
+    if (b.team === 'muse' && !b.path.length) {   // ✨ the muse glow
+      const L = LOOKS[b.id];
+      for (let i = 0; i < 3; i++) {
+        const u = (t * 0.6 + i / 3 + b.phase) % 1, p = iso(b.x, b.y, b.z + (20 + u * 55) * L.scale);
+        ctx.globalAlpha = Math.sin(u * Math.PI); ctx.fillStyle = b.id === 'mikay' ? '#ffd6ec' : '#fff3b0';
+        ctx.font = `${10 + i * 2}px sans-serif`; ctx.fillText(b.id === 'mikay' ? '✨' : (i === 1 ? '💪' : '✦'), p.x + (i - 1) * 16 * L.scale, p.y);
+      }
+      ctx.globalAlpha = 1;
+    }
     if (!b.activity || b.activity !== b.spot || b.path.length || b.task) return;
     const L = LOOKS[b.id], f = b.face || 1, p = iso(b.x, b.y, b.z + 30 * L.scale);
     ctx.font = '14px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
@@ -1160,7 +1259,7 @@
       ${b.queue.length ? `<ul>${b.queue.slice(0, 5).map((q) => `<li>⏳ ${esc(q.text)}</li>`).join('')}</ul>` : '<div class="muted">Empty</div>'}
       <h4>Recent (${b.done} done)</h4>
       ${b.log.length ? `<ul>${b.log.map((l) => `<li>${esc(l.text)}${l.url ? ` <a href="${esc(l.url)}" target="_blank">📄 report</a>` : ''}</li>`).join('')}</ul>` : '<div class="muted">Nothing yet</div>'}
-      ${b.id === 'mgr' ? '' : `<div class="actions">
+      ${b.id === 'mgr' || b.team === 'muse' ? '' : `<div class="actions">
         <button class="primary" data-act="task">＋ Give task</button>
         <button data-act="file">📎 Upload</button>
         <button data-act="break">${b.state === 'break' ? '▶ Back to work' : '☕ Break'}</button></div>`}`;
@@ -1400,6 +1499,48 @@
   document.getElementById('phoneOn').onclick = () => setPhone(true);
   document.getElementById('phoneOff').onclick = () => setPhone(false);
   document.getElementById('phoneBox').addEventListener('toggle', paintPhone);
+
+  // ───────────────────────── Content Hub ─────────────────────────
+  const contModal = document.getElementById('contModal'), contForm = document.getElementById('contForm'), contMsg = document.getElementById('contMsg');
+  const contFiles = document.getElementById('contFiles'), contRows = document.getElementById('contRows');
+  const escH = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  contFiles.onchange = () => {
+    contRows.innerHTML = [...contFiles.files].map((f, i) => `<div class="crow" data-i="${i}"><b>🎬 ${escH(f.name)}</b>
+      <input class="c-tt" type="url" placeholder="🛒 TikTok Shop product link (Shane, yellow basket)" />
+      <input class="c-sp" type="url" placeholder="🧡 Shopee affiliate link (Jacob, FB/IG) e.g. https://s.shopee.ph/..." />
+      <input class="c-nt" type="text" placeholder="Tungkol saan ang video? (para sa SEO caption ni Asher)" /></div>`).join('');
+  };
+  document.getElementById('contBtn').onclick = () => { contModal.classList.remove('hidden'); contMsg.textContent = live ? '' : 'Buksan muna ang server.'; };
+  document.getElementById('contClose').onclick = () => contModal.classList.add('hidden');
+  contModal.addEventListener('click', (e) => { if (e.target === contModal) contModal.classList.add('hidden'); });
+  contForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!live) { contMsg.textContent = 'Offline: buksan muna ang server.'; return; }
+    if (!contFiles.files.length) { contMsg.textContent = 'Pumili muna ng video.'; return; }
+    const plats = [...contForm.querySelectorAll('input[name=plat]:checked')].map((x) => x.value);
+    if (!plats.length) { contMsg.textContent = 'Pumili ng kahit isang platform.'; return; }
+    const fd = new FormData();
+    [...contFiles.files].forEach((f) => fd.append('files', f));
+    fd.append('meta', JSON.stringify([...contRows.querySelectorAll('.crow')].map((r) => ({
+      tiktok: r.querySelector('.c-tt').value, shopee: r.querySelector('.c-sp').value, notes: r.querySelector('.c-nt').value }))));
+    fd.append('platforms', plats.join(',')); fd.append('when', contForm.elements.when.value);
+    const btn = contForm.querySelector('.primary'); btn.disabled = true; contMsg.textContent = 'Uploading…';
+    try {
+      const j = await (await fetch('/api/content/batch', { method: 'POST', body: fd })).json();
+      if (!j.ok) throw new Error(j.error || j.detail || 'error');
+      Sound.play('upload'); feed(botById.asher, `Content batch started: ${j.videos} video(s) 🎬 (JP is editing)`);
+      contForm.reset(); contRows.innerHTML = ''; contModal.classList.add('hidden'); contMsg.textContent = '';
+    } catch (err) { contMsg.textContent = 'Hindi nagsimula: ' + err.message; }
+    btn.disabled = false;
+  };
+  document.getElementById('metaTest').onclick = async () => {
+    const info = document.getElementById('metaInfo');
+    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formJSON()) });
+    info.textContent = 'Testing…';
+    const j = await (await fetch('/api/meta/test', { method: 'POST' })).json();
+    info.textContent = (j.ok ? '✅ ' : '❌ ') + j.message;
+    if (j.ig_id) setForm.elements.meta_ig_user_id.value = j.ig_id;
+  };
 
   // ───────────────────────── KYC / KYB / URL ─────────────────────────
   const kycModal = document.getElementById('kycModal'), kycForm = document.getElementById('kycForm'), kycMsg = document.getElementById('kycMsg');
