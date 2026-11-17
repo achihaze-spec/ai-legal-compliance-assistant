@@ -40,6 +40,15 @@ How David posts:
   the batch page gives a ready-made prompt for **Claude in Chrome**: open TikTok Studio, upload, paste the caption, add the
   product link, post. Browser bots that post for you break TikTok's terms, so they are not used.
 
+### 📚 Prompt Library and Prompt Packs
+`prompt_library.py` holds your collected AI image/video prompts (optimized for strict consistency): the Photos-to-AI-Video
+master prompt and hybrid technique, fashion poses and try-on display, talking model, selfie/UGC, faceless product shots,
+the perfume set, hooks and slash commands, model swap, character sheet, reference-locked video, the consistency
+prompts, CapCut steps and posting templates. Open it at **/prompts** (search + copy). For every product in the Content Hub
+and the Affiliate Studio, **Asher picks a Prompt Pack**: the right prompts for the product type (apparel, dress, bag,
+serum, skincare, makeup, perfume, decor, food, gadgets...) and for what you have (model photo, background photo), in the
+order to use them, with the known [placeholders] filled in (product, model name, setting, voice, script hook).
+
 ### Connect Facebook and Instagram
 1. Your Instagram must be a Professional (Business or Creator) account linked to your Facebook Page.
 2. At developers.facebook.com create an app (type Business), add the Facebook Login for Business and Instagram products.
