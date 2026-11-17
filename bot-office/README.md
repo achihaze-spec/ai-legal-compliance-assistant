@@ -1,9 +1,11 @@
 # 🌴 Evercrestcorp Compliance Hub · Bot Office (24/7 Bots)
 
 A beachfront resort office where the **compliance** and **content** teams live, drawn as Pixar-style cartoon people.
-The **Evercrestcorp Compliance Hub** and the Content Studio are open nipa huts; on the beach there is a coffee bar beside
-the Hub, a dance floor, a volleyball court and loungers. When someone has work they walk to their desk; when they don't,
-they grab a coffee, play volleyball, dance or relax on a lounger, and chat with the others.
+The **Evercrestcorp Compliance Hub** and the **Content Hub** are white modern villas with dark-wood accents, big windows,
+woven-basket wall decor and pendant lights. Out front: a coffee bar, a curvy pool with floats and teak loungers, a
+dance floor, a cabana daybed, beach volleyball, bougainvillea, palms and a pier. When someone has work they walk to their
+desk; when they don't, they grab a coffee, swim, play volleyball, dance or relax, and chat with the others.
+🌗 switches day / night (auto follows Manila time): at night the pool, lanterns and pendant lights glow under the stars.
 
 **The team**
 - **Pablo, Doc Reader:** first on every case. Takes uploads and KYC/KYB forms, opens the Drive folder, reads every
