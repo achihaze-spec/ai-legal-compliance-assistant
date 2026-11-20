@@ -1747,11 +1747,14 @@
   const contModal = document.getElementById('contModal'), contForm = document.getElementById('contForm'), contMsg = document.getElementById('contMsg');
   const contFiles = document.getElementById('contFiles'), contRows = document.getElementById('contRows');
   const escH = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const MEDIA_RE = /\.(mp4|mov|m4v|webm|avi|mkv|3gp|wmv|flv|mts|m2ts|jpe?g|png|webp|gif|bmp|tiff?|heic|heif)$/i;
   contFiles.onchange = () => {
-    contRows.innerHTML = [...contFiles.files].map((f, i) => `<div class="crow" data-i="${i}"><b>🎬 ${escH(f.name)}</b>
+    contRows.innerHTML = [...contFiles.files].map((f, i) => MEDIA_RE.test(f.name)
+      ? `<div class="crow" data-i="${i}"><b>${/\.(jpe?g|png|webp|gif|bmp|tiff?|heic|heif)$/i.test(f.name) ? '🖼' : '🎬'} ${escH(f.name)}</b>
       <input class="c-tt" type="url" placeholder="🛒 TikTok Shop product link (Shane, yellow basket)" />
       <input class="c-sp" type="url" placeholder="🧡 Shopee affiliate link (Jacob, FB/IG) e.g. https://s.shopee.ph/..." />
-      <input class="c-nt" type="text" placeholder="Tungkol saan ang video? (para sa SEO caption ni Asher)" /></div>`).join('');
+      <input class="c-nt" type="text" placeholder="Tungkol saan? (para sa SEO caption ni Asher)" /></div>`
+      : `<div class="crow ref" data-i="${i}"><b>📎 ${escH(f.name)}</b><small>Reference: babasahin ni Asher (brief, product list, audio…). Kapag kapareho ng pangalan ng video/larawan, para doon lang.</small></div>`).join('');
   };
   document.getElementById('contBtn').onclick = () => { contModal.classList.remove('hidden'); contMsg.textContent = live ? '' : 'Buksan muna ang server.'; };
   document.getElementById('contClose').onclick = () => contModal.classList.add('hidden');
@@ -1764,14 +1767,14 @@
     if (!plats.length) { contMsg.textContent = 'Pumili ng kahit isang platform.'; return; }
     const fd = new FormData();
     [...contFiles.files].forEach((f) => fd.append('files', f));
-    fd.append('meta', JSON.stringify([...contRows.querySelectorAll('.crow')].map((r) => ({
+    fd.append('meta', JSON.stringify([...contRows.querySelectorAll('.crow')].map((r) => (r.classList.contains('ref') ? {} : {
       tiktok: r.querySelector('.c-tt').value, shopee: r.querySelector('.c-sp').value, notes: r.querySelector('.c-nt').value }))));
     fd.append('platforms', plats.join(',')); fd.append('when', contForm.elements.when.value);
     const btn = contForm.querySelector('.primary'); btn.disabled = true; contMsg.textContent = 'Uploading…';
     try {
       const j = await (await fetch('/api/content/batch', { method: 'POST', body: fd })).json();
       if (!j.ok) throw new Error(j.error || j.detail || 'error');
-      Sound.play('upload'); feed(botById.asher, `Content batch started: ${j.videos} file(s) 🎬 (JP is editing)`);
+      Sound.play('upload'); feed(botById.asher, `Content batch started: ${j.videos} video/photo(s)` + (j.refs ? ` + ${j.refs} reference file(s) 📎` : '') + ' 🎬');
       contForm.reset(); contRows.innerHTML = ''; contModal.classList.add('hidden'); contMsg.textContent = '';
     } catch (err) { contMsg.textContent = 'Hindi nagsimula: ' + err.message; }
     btn.disabled = false;

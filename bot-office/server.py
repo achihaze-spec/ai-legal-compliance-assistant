@@ -738,9 +738,11 @@ def run_job(job: dict) -> None:
 BATCHES = HERE / "data" / "content_hub" / "batches"
 
 
-def start_batch(items: list[dict], platforms: list[str], when: str) -> str:
+def start_batch(items: list[dict], platforms: list[str], when: str, refs: list | None = None) -> str:
     bid = uuid.uuid4().hex[:10]
-    _content_jobs.put({"id": bid, "name": f"{len(items)} video(s)", "items": items, "platforms": platforms, "when": when})
+    _content_jobs.put({"id": bid, "name": f"{len(items)} file(s)", "items": items, "platforms": platforms, "when": when, "refs": refs or []})
+    if refs:
+        emit(bot="asher", type="task", task=f"{bid}-refs", text=f"Read {len(refs)} reference file(s)", secs=MIN_STEP_SECS["asher"])
     for it in items:
         emit(bot="jp", type="task", task=f"{it['id']}-jp", text=f"Edit + review: {it['name']}", secs=MIN_STEP_SECS["jp"])
     return bid
@@ -755,34 +757,86 @@ async def content_batch(files: list[UploadFile] = File(...), meta: str = Form("[
     except ValueError:
         rows = []
     plats = [p for p in platforms.split(",") if p in content_hub.PLATFORMS] or ["tiktok"]
-    items = []
+    items, refs = [], []
     for i, f in enumerate(files):
-        name = Path(f.filename or "video").name
+        name = Path(f.filename or "file").name
         ext = Path(name).suffix.lower()
         data = await f.read()
-        if ext not in (content.VIDEO_EXT | {".jpg", ".jpeg", ".png"}) or len(data) > MAX_MEDIA_BYTES:
+        if not data or len(data) > MAX_MEDIA_BYTES:
             continue
         vid = uuid.uuid4().hex[:10]
-        path = UPLOADS / f"{vid}{ext}"
+        path = UPLOADS / f"{vid}{re.sub(r'[^.a-z0-9]', '', ext)[:8]}"
         path.write_bytes(data)
         r = rows[i] if i < len(rows) and isinstance(rows[i], dict) else {}
-        items.append({"id": vid, "name": name, "path": path, "tiktok": str(r.get("tiktok", "")).strip(),
-                      "shopee": str(r.get("shopee", "")).strip(), "notes": str(r.get("notes", "")).strip()[:500]})
-    if not items:
-        return {"ok": False, "error": "Walang file na natanggap (video: mp4, mov, m4v, webm · larawan: jpg, png)."}
-    bid = start_batch(items, plats, when if when in ("slots", "now") else "slots")
-    return {"ok": True, "batch": bid, "videos": len(items)}
+        if ext in content_hub.VIDEO_EXTS | content_hub.IMAGE_EXTS:
+            items.append({"id": vid, "name": name, "path": path, "tiktok": str(r.get("tiktok", "")).strip(),
+                          "shopee": str(r.get("shopee", "")).strip(), "notes": str(r.get("notes", "")).strip()[:500]})
+        else:
+            refs.append({"id": vid, "name": name, "path": str(path)})
+    if not items and not refs:
+        return {"ok": False, "error": "Walang file na natanggap."}
+    bid = start_batch(items, plats, when if when in ("slots", "now") else "slots", refs)
+    return {"ok": True, "batch": bid, "videos": len(items), "refs": len(refs)}
+
+
+def read_batch_refs(bid: str, items: list[dict], refs: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Asher reads briefs and product lists; matches them to the media by file name. Returns (ref summaries, plan rows)."""
+    t0 = time.time()
+    by_stem = {content_hub.stem_key(it["name"]): it for it in items}
+    read, briefs, plan = [], [], []
+    for r in refs:
+        info = content_hub.read_reference(Path(r["path"]), r["name"])
+        info["file"] = Path(r["path"]).name
+        read.append({k: v for k, v in info.items() if k != "rows"} | {"text": info["text"][:3000]})
+        if info["kind"] == "brief" and info["text"]:
+            target = by_stem.get(content_hub.stem_key(r["name"]))
+            if target:
+                target["notes"] = (target["notes"] + " " + info["text"][:1500]).strip()
+            else:
+                briefs.append(info["text"][:1500])
+        for row in info["rows"]:
+            target = by_stem.get(content_hub.stem_key(row["file"])) if row["file"] else None
+            if target:
+                for k in ("tiktok", "shopee", "notes"):
+                    if row[k] and not target[k]:
+                        target[k] = row[k]
+                if row["name"] and row["name"] not in target["notes"]:
+                    target["notes"] = (row["name"] + ". " + target["notes"]).strip()
+            elif row["name"] or row["notes"]:
+                plan.append(row)
+    if briefs:
+        for it in items:
+            if len(it["notes"]) < 400:
+                it["notes"] = (it["notes"] + " " + " ".join(briefs)[:1500]).strip()
+    _paced("asher", t0)
+    emit(bot="asher", type="done", task=f"{bid}-refs",
+         text=f"Read {len(refs)} file(s): " + ", ".join(f"{x['name']} ({x['note']})" for x in read)[:220])
+    return read, plan
 
 
 def run_content_batch(job: dict) -> None:
     bid, items, plats = job["id"], job["items"], job["platforms"]
     videos, posts = [], []
+    refs_read, plan = read_batch_refs(bid, items, job.get("refs", [])) if job.get("refs") else ([], [])
+    for row in plan:   # products from a sheet with no media yet: caption drafts + Prompt Pack
+        name = row["name"] or row["notes"][:60]
+        product = content_hub.product_name(row["tiktok"] or row["shopee"]) or name
+        cap = content_hub.seo_caption(name, row["notes"], product)
+        drafts = {pl: content_hub.platform_caption(cap, pl, row["shopee"] if content_hub.check_link(row["shopee"], "shopee")[0] in ("ok", "warn") else "",
+                                                   row["tiktok"] if content_hub.check_link(row["tiktok"], "tiktok")[0] in ("ok", "warn") else "")[0]
+                  for pl in plats}
+        videos.append({"id": content_hub.new_id(), "kind": "plan", "name": name, "drafts": drafts, "row": row,
+                       "prompt_pack": prompt_library.pack(name, row["notes"], script=cap["hook"])})
+    if plan:
+        emit(bot="asher", type="log", text=f"📊 {len(plan)} product(s) from the sheet: caption drafts + Prompt Packs ready (no media yet)")
     for it in items:
         vid, name = it["id"], it["name"]
         out = OUTBOX / vid
         # JP: edit + review
         t0 = time.time()
         try:
+            if Path(it["path"]).suffix.lower() in content_hub.IMAGE_EXTS:
+                it["path"] = content_hub.normalize_image(Path(it["path"]), out)
             media = content.make_vertical(it["path"], out)
         except Exception as exc:
             _paced("jp", t0)
@@ -832,8 +886,14 @@ def run_content_batch(job: dict) -> None:
         videos.append({"id": vid, "job": vid, "name": name, "file_name": file_name, "media": media["media"], "kind": mkind, "photo": photo,
                        "review": review, "links": links,
                        "prompt_pack": pk})
-    if not videos:
+    real = [v for v in videos if v.get("kind") != "plan"]
+    BATCHES.mkdir(parents=True, exist_ok=True)
+    if not real:
+        (BATCHES / f"{bid}.json").write_text(json.dumps({"videos": videos, "refs": refs_read}, ensure_ascii=False, default=str))
+        if videos or refs_read:
+            emit(bot="asher", type="log", url=f"/content/{bid}", text="📎 Reference files read: open the batch page for the drafts and Prompt Packs")
         return
+    videos_all, videos = videos, real
     # Ashley: one slot per video, shared by its platforms
     emit(bot="ashley", type="task", task=f"{bid}-ashley", text=f"Pick posting slots: {len(videos)} video(s)", secs=MIN_STEP_SECS["ashley"])
     t0 = time.time()
@@ -857,7 +917,7 @@ def run_content_batch(job: dict) -> None:
                     p.update(route="", auto=False, error=f"Couldn't copy to the Drive folder: {exc}")
         content_hub.save_posts(allp + posts)
     BATCHES.mkdir(parents=True, exist_ok=True)
-    (BATCHES / f"{bid}.json").write_text(json.dumps(videos, ensure_ascii=False, default=str))
+    (BATCHES / f"{bid}.json").write_text(json.dumps({"videos": videos_all, "refs": refs_read}, ensure_ascii=False, default=str))
     _paced("ashley", t0)
     first = min(slots)
     emit(bot="ashley", type="done", task=f"{bid}-ashley", url=f"/content/{bid}",
@@ -874,9 +934,10 @@ def prompts_page():
 def content_page(bid: str):
     if not re.fullmatch(r"[0-9a-f]{10}", bid) or not (BATCHES / f"{bid}.json").exists():
         raise HTTPException(404)
-    videos = json.loads((BATCHES / f"{bid}.json").read_text())
+    data = json.loads((BATCHES / f"{bid}.json").read_text())
+    videos, refs = (data, []) if isinstance(data, list) else (data["videos"], data.get("refs", []))
     posts = [p for p in content_hub.load_posts() if p["batch"] == bid]
-    return HTMLResponse(content_hub.render_batch(bid, posts, videos))
+    return HTMLResponse(content_hub.render_batch(bid, posts, videos, refs))
 
 
 @app.get("/api/content/posts")

@@ -144,3 +144,5 @@ span.avatar::before, span.avatar::after { content: ""; position: absolute; top: 
 .crow b { font-size: 13px; color: #fff; word-break: break-all; }
 .crow input { width: 100%; }
 fieldset.plats { border: 1px solid #3a3270; border-radius: 12px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; color: #cfc9ff; font-size: 13px; }
+.crow.ref { border-style: dashed; }
+.crow small { color: #9c96c9; font-size: 12px; }

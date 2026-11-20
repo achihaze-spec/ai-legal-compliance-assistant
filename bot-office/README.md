@@ -40,6 +40,18 @@ How David posts:
   the batch page gives a ready-made prompt for **Claude in Chrome**: open TikTok Studio, upload, paste the caption, add the
   product link, post. Browser bots that post for you break TikTok's terms, so they are not used.
 
+### 📎 Any file in the Content Hub
+📱 Content takes any file:
+- **Videos** (mp4, mov, m4v, webm, avi, mkv, 3gp, wmv, flv, mts) and **pictures** (jpg, png, webp, gif, bmp, tiff, heic)
+  are edited and posted.
+- **Word, PDF, text, PowerPoint** become briefs: a file with the same name as a video/picture (e.g. `skort.docx` for
+  `skort.mp4`) is used only for it; other briefs are used for every post in the batch. Asher uses them for the SEO caption
+  and the Prompt Pack.
+- **Excel / CSV product lists**: columns like File, Product Name, Shopee Link, TikTok Link, Notes. A row whose File matches
+  an uploaded video/picture gives it its links and notes; other rows become **caption drafts + a Prompt Pack** for that
+  product (no media yet), ready for the next shoot or AI video. Old `.xls` files: save as `.xlsx` first.
+- **Audio and anything else** is kept and listed on the batch page as a reference.
+
 ### 📚 Prompt Library and Prompt Packs
 `prompt_library.py` holds your collected AI image/video prompts (optimized for strict consistency): the Photos-to-AI-Video
 master prompt and hybrid technique, fashion poses and try-on display, talking model, selfie/UGC, faceless product shots,
