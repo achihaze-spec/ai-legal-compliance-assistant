@@ -52,6 +52,16 @@ How David posts:
   product (no media yet), ready for the next shoot or AI video. Old `.xls` files: save as `.xlsx` first.
 - **Audio and anything else** is kept and listed on the batch page as a reference.
 
+### ✨ Inspo links (the right teammate watches them)
+In 📱 Content paste inspo links, one per line: TikTok (Shane watches), Instagram / Facebook (Jacob), Canva, Pinterest and
+web pages (Asher), YouTube, Google Drive and direct video/photo links (JP). The video is downloaded (public posts, via
+yt-dlp; Instagram may need the post to be public), measured (length, aspect, cuts and average shot length, sound,
+colours) and turned into a 12-frame contact sheet. With Claude set as the AI provider it also writes the hook, style,
+shot list, pacing, on-screen text, what to recreate and what not to copy. Canva share links give the preview image only:
+download the MP4/PNG for the full design. Asher uses the breakdown for the captions, and the Prompt Pack adds the
+"Recreate a viral video's structure" prompt. Inspo-only batches (no files) work too. Inspiration only: don't repost
+other people's videos, music or art.
+
 ### 📚 Prompt Library and Prompt Packs
 `prompt_library.py` holds your collected AI image/video prompts (optimized for strict consistency): the Photos-to-AI-Video
 master prompt and hybrid technique, fashion poses and try-on display, talking model, selfie/UGC, faceless product shots,
