@@ -107,7 +107,8 @@ def seo_caption(name: str, notes: str, product: str) -> dict:
         "No prices, no platform names, no claims the product page does not support.",
         f"Creator's caption rules: {rules}" if rules else "",
     ] if x)
-    cap = content.write_caption(name, brief)
+    topic = product or (re.split(r"[.,;\n]", notes)[0].strip()[:60] if notes else "") or name
+    cap = content.write_caption(topic, brief)
     cap["hook"], cap["caption"], cap["cta"] = clean(cap["hook"]), clean(cap["caption"]), clean(cap["cta"])
     cap["hashtags"] = [h for h in (clean(h) for h in cap["hashtags"]) if h][:8]
     return cap
@@ -163,6 +164,115 @@ def platform_caption(cap: dict, platform: str, shopee: str, tiktok: str) -> tupl
     # Instagram captions can't hold clickable links: the link goes in the first comment
     cta = "🛒 Link sa bio o comments" if shopee else cap["cta"]
     return f"{base}\n\n{cta}\n\n{tags}{affiliate_tag}", (f"🛒 Shop here: {shopee}" if shopee else "")
+
+
+# ───────────────────────── reference files (briefs, product lists) ─────────────────────────
+VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv", ".3gp", ".wmv", ".flv", ".mts", ".m2ts"}
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif"}
+AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"}
+COLS = {"file": ("file", "filename", "file name", "video", "image", "photo", "media"),
+        "name": ("product", "product name", "name", "item", "title", "pangalan"),
+        "tiktok": ("tiktok", "tiktok link", "tiktok shop", "tiktok shop link", "tiktok product"),
+        "shopee": ("shopee", "shopee link", "affiliate link", "shopee affiliate", "link", "url"),
+        "notes": ("notes", "description", "details", "features", "brief", "about", "caption notes", "detalye")}
+
+
+def normalize_image(src: Path, out_dir: Path) -> Path:
+    """webp / gif / bmp / tiff / heic → png so the editors can use it."""
+    if src.suffix.lower() in (".jpg", ".jpeg", ".png"):
+        return src
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest = out_dir / (src.stem + "_src.png")
+    try:
+        from PIL import Image
+        Image.open(src).convert("RGB").save(dest)
+        return dest
+    except Exception:
+        import subprocess
+        if content.FFMPEG:
+            subprocess.run([content.FFMPEG, "-y", "-v", "error", "-i", str(src), "-frames:v", "1", str(dest)], check=True, timeout=120)
+            return dest
+        raise
+
+
+def _sheet_rows(path: Path) -> list[dict]:
+    ext = path.suffix.lower()
+    raw: list[list] = []
+    if ext == ".csv":
+        import csv
+        with path.open(encoding="utf-8-sig", errors="replace", newline="") as fh:
+            raw = [r for r in csv.reader(fh)]
+    else:
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        for ws in wb.worksheets:
+            raw += [["" if c is None else str(c) for c in r] for r in ws.iter_rows(values_only=True)]
+            break  # first sheet
+    raw = [r for r in raw if any(str(c).strip() for c in r)]
+    if not raw:
+        return []
+    head = [str(c).strip().lower() for c in raw[0]]
+    idx = {}
+    for key, names in COLS.items():
+        for i, h in enumerate(head):
+            if h in names and i not in idx.values():
+                idx.setdefault(key, i)
+    if not idx:   # no header: column 1 = product, links found anywhere
+        idx, raw = {"name": 0}, [[""]] + raw
+    rows = []
+    for r in raw[1:]:
+        cell = lambda k: str(r[idx[k]]).strip() if k in idx and idx[k] < len(r) else ""
+        row = {k: cell(k) for k in COLS}
+        for c in r:   # links in unnamed columns
+            c = str(c)
+            if not row["tiktok"] and "tiktok.com" in c:
+                row["tiktok"] = c.strip()
+            if not row["shopee"] and ("shopee" in c or "shope.ee" in c):
+                row["shopee"] = c.strip()
+        extra = [f"{head[i] if i < len(head) else 'col'}: {r[i]}" for i in range(len(r)) if i not in idx.values() and str(r[i]).strip()
+                 and "http" not in str(r[i])]
+        if extra:
+            row["notes"] = (row["notes"] + "; " if row["notes"] else "") + "; ".join(extra)[:600]
+        if any(row.values()):
+            rows.append(row)
+    return rows[:200]
+
+
+def read_reference(path: Path, name: str) -> dict:
+    """{kind: brief|sheet|audio|other, text, rows, note}"""
+    ext = path.suffix.lower()
+    out = {"name": name, "kind": "other", "text": "", "rows": [], "note": ""}
+    try:
+        if ext in (".xlsx", ".xlsm", ".csv"):
+            out.update(kind="sheet", rows=_sheet_rows(path))
+            out["note"] = f"{len(out['rows'])} row(s)"
+        elif ext == ".xls":
+            out["note"] = "Lumang Excel (.xls): i-save as .xlsx para mabasa"
+        elif ext == ".pptx":
+            import zipfile
+            with zipfile.ZipFile(path) as z:
+                slides = sorted(n for n in z.namelist() if re.match(r"ppt/slides/slide\d+\.xml$", n))
+                out["text"] = "\n".join(" ".join(html.unescape(t) for t in re.findall(r"<a:t>(.*?)</a:t>", z.read(n).decode("utf-8", "ignore"))) for n in slides)
+            out["kind"] = "brief"
+        elif ext in (".pdf", ".docx", ".txt", ".md", ".html", ".htm", ".rtf", ".json", ".xml"):
+            import compliance
+            text, _ = compliance.extract_text(path)
+            if ext == ".rtf":
+                text = re.sub(r"\\[a-z]+-?\d* ?|[{}]", "", text)
+            out.update(kind="brief", text=re.sub(r"[ \t]+", " ", text).strip())
+        elif ext in AUDIO_EXTS:
+            out.update(kind="audio", note="Audio: naitabi bilang voiceover o music reference")
+        else:
+            out["note"] = "Naitabi bilang reference"
+        if out["kind"] == "brief":
+            out["note"] = f"{len(out['text'].split())} words" if out["text"] else "Walang mabasang text (scanned?)"
+    except Exception as exc:
+        out["note"] = f"Hindi mabasa ({type(exc).__name__})"
+    return out
+
+
+def stem_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", Path(name).stem.lower())
 
 
 # ───────────────────────── Ashley: slots ─────────────────────────
@@ -381,10 +491,28 @@ def pack_html(v: dict) -> str:
             + prompt_library.render_pack(v["prompt_pack"], v["name"]) + "</details>")
 
 
-def render_batch(bid: str, posts: list[dict], videos: list[dict]) -> str:
+def render_batch(bid: str, posts: list[dict], videos: list[dict], refs: list | None = None) -> str:
     e = html.escape
     rows = []
+    if refs:
+        icon = {"brief": "📄", "sheet": "📊", "audio": "🎵"}
+        items = "".join(f"<li>{icon.get(r['kind'], '📎')} <b>{e(r['name'])}</b> <span class='muted'>· {e(r['note'])}</span>"
+                        + (f"<details><summary>Nabasang text</summary><pre>{e(r['text'][:3000])}</pre></details>" if r.get("text") else "") + "</li>"
+                        for r in refs)
+        rows.append(f"<section class='video'><div class='right'><h2>📎 Reference files (binasa ni Asher)</h2><ul>{items}</ul>"
+                    "<p class='muted'>Ang brief na kapareho ng pangalan ng isang video/larawan ay para doon lang; ang iba ay ginamit sa lahat. "
+                    "Sa Excel/CSV, ang row na may file name ng video ay nagbibigay ng links at notes nito; ang ibang row ay naging caption draft at Prompt Pack.</p></div></section>")
     for v in videos:
+        if v.get("kind") == "plan":
+            r = v["row"]
+            links = "".join(f"<li>{k}: <a href='{e(u)}' target='_blank'>{e(u)}</a></li>" for k, u in (("TikTok Shop", r.get("tiktok")), ("Shopee", r.get("shopee"))) if u)
+            drafts = "".join(f"<div class='post'><h3>{e(PLATFORMS[pl])} <span class='badge' style='background:#9c96c9'>📝 Draft</span></h3><pre>{e(c)}</pre>"
+                             f"<button onclick=\"copy(this, {e(json.dumps(c))})\">📋 Copy caption</button></div>" for pl, c in v["drafts"].items())
+            rows.append(f"<section class='video'><div class='right'><h2>📊 {e(v['name'])}</h2><p class='muted'>Mula sa product list · "
+                        f"walang video o larawan pa: gamitin ang Prompt Pack para gumawa, tapos i-upload dito.</p>"
+                        f"{('<ul>' + links + '</ul>') if links else ''}{('<p class=muted>' + e(r.get('notes', '')[:300]) + '</p>') if r.get('notes') else ''}"
+                        f"{drafts}{pack_html(v)}</div></section>")
+            continue
         ps = [p for p in posts if p["video"] == v["id"]]
         cards = []
         for p in ps:
