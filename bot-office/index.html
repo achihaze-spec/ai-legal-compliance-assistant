@@ -81,7 +81,7 @@
           <div class="head"><h2>📱 Content Hub</h2><button type="button" class="close" id="contClose">×</button></div>
           <p class="muted"><a href="/prompts" target="_blank">📚 Prompt Library</a>: si Asher ang pipili ng prompts para sa bawat produkto (makikita sa batch page).</p>
           <p class="muted">JP edits → Asher writes the SEO caption and checks the links → Shane (TikTok + yellow basket) and Jacob (Shopee link on FB/IG) → Ashley picks the slots → David posts.</p>
-          <label>Videos <small>(isa o marami)</small><input id="contFiles" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" multiple /></label>
+          <label>Videos o larawan <small>(isa o marami · mp4, mov, webm, jpg, png · puwede ring galing sa Canva download)</small><input id="contFiles" type="file" accept="video/*,image/jpeg,image/png,.mp4,.mov,.m4v,.webm,.jpg,.jpeg,.png" multiple /></label>
           <div id="contRows"></div>
           <fieldset class="plats"><legend>Saan ipo-post</legend>
             <label class="check"><input type="checkbox" name="plat" value="tiktok" checked /> TikTok (Shane + Claude)</label>
@@ -131,6 +131,16 @@
             <label>Instagram user ID <small>(kusang napupunan sa Test)</small><input name="meta_ig_user_id" type="text" /></label>
             <button type="button" class="ghost" id="metaTest">🔌 Test Facebook / Instagram</button>
             <div id="metaInfo" class="muted"></div>
+            <p class="muted"><b>⚡ O gamit ang Zapier</b> (mas madali; inuuna ito ni David kapag naka-set). 1) Gumawa ng folder sa Google Drive (hal. "Content Hub Posts"), i-share as <b>Anyone with the link · Viewer</b>, at piliin dito ang synced na folder sa Mac. 2) Sa Zapier, isang Zap bawat uri: <i>Webhooks by Zapier → Catch Hook</i> → Instagram/Facebook action. Kopyahin ang hook URL dito. Nasa README ang mga hakbang.</p>
+            <label>Drive folder para sa posts <small>(naka-share as Anyone with the link)</small><input name="content_drive_folder" type="text" placeholder="/Users/ikaw/Library/CloudStorage/GoogleDrive-.../My Drive/Content Hub Posts" /></label>
+            <label>Zap: Instagram Reel (video)<input name="zap_ig_reel" type="password" autocomplete="off" placeholder="https://hooks.zapier.com/hooks/catch/..." /></label>
+            <label>Zap: Instagram photo<input name="zap_ig_photo" type="password" autocomplete="off" placeholder="https://hooks.zapier.com/hooks/catch/..." /></label>
+            <label>Zap: Facebook video<input name="zap_fb_video" type="password" autocomplete="off" placeholder="https://hooks.zapier.com/hooks/catch/..." /></label>
+            <label>Zap: Facebook photo<input name="zap_fb_photo" type="password" autocomplete="off" placeholder="https://hooks.zapier.com/hooks/catch/..." /></label>
+            <select id="zapWhich"><option value="zap_ig_reel">Test: Instagram Reel</option><option value="zap_ig_photo">Test: Instagram photo</option>
+              <option value="zap_fb_video">Test: Facebook video</option><option value="zap_fb_photo">Test: Facebook photo</option></select>
+            <button type="button" class="ghost" id="zapTest">⚡ Send a test to Zapier</button>
+            <div id="zapInfo" class="muted"></div>
           </details>
           <details class="modelbox" id="phoneBox"><summary>📱 Phone access (Wi-Fi)</summary>
             <p class="muted">Buksan ang Bot Office sa phone mo habang naka-on ang Mac at pareho kayong nasa iisang Wi-Fi.</p>

@@ -161,7 +161,7 @@ def platform_caption(cap: dict, platform: str, shopee: str, tiktok: str) -> tupl
         shop = f"\n\n🛒 Shop here: {shopee}" if shopee else ""
         return f"{base}{shop}\n\n{cap['cta']}\n\n{tags}{affiliate_tag}", ""
     # Instagram captions can't hold clickable links: the link goes in the first comment
-    cta = "🛒 Link in the comments" if shopee else cap["cta"]
+    cta = "🛒 Link sa bio o comments" if shopee else cap["cta"]
     return f"{base}\n\n{cta}\n\n{tags}{affiliate_tag}", (f"🛒 Shop here: {shopee}" if shopee else "")
 
 
@@ -198,6 +198,80 @@ def _meta() -> dict:
     s = veo.load()
     return {"page": s.get("meta_page_id", "").strip(), "token": s.get("meta_page_token", "").strip(),
             "ig": s.get("meta_ig_user_id", "").strip(), "ver": s.get("meta_graph_version", "v23.0").strip() or "v23.0"}
+
+
+# ───────────────────────── Zapier (FB / IG via Google Drive public links) ─────────────────────────
+ZAP_KEYS = {("instagram", "video"): "zap_ig_reel", ("instagram", "photo"): "zap_ig_photo",
+            ("facebook", "video"): "zap_fb_video", ("facebook", "photo"): "zap_fb_photo"}
+
+
+def zapier_ready(platform: str, kind: str) -> bool:
+    s = veo.load()
+    key = ZAP_KEYS.get((platform, kind))
+    folder = s.get("content_drive_folder", "").strip()
+    return bool(key and s.get(key, "").startswith("https://") and folder and Path(folder).expanduser().is_dir())
+
+
+def stage_to_drive(p: dict, src: Path) -> Path:
+    """Copies the post's media into the shared Drive folder so Drive for desktop uploads it before the slot."""
+    import shutil
+    folder = Path(veo.load()["content_drive_folder"]).expanduser()
+    dest = folder / f"{p['slot'][:10]}_{re.sub(r'[^\w.-]+', '_', Path(p['name']).stem)[:40]}_{p['platform']}_{p['id']}{src.suffix}"
+    if not dest.exists():
+        shutil.copyfile(src, dest)
+    return dest
+
+
+def drive_public_url(path: Path) -> str | None:
+    """Direct-download link of a file synced by Drive for desktop (the folder must be shared 'Anyone with the link')."""
+    import kyb_docs
+    fid = kyb_docs._xattr(path)
+    return f"https://drive.usercontent.google.com/download?id={fid}&export=download&confirm=t" if fid else None
+
+
+def send_zapier(p: dict, url: str) -> None:
+    import requests
+    hook = veo.load()[ZAP_KEYS[(p["platform"], p.get("kind", "video"))]]
+    r = requests.post(hook, json={"platform": p["platform"], "kind": p.get("kind", "video"), "media_url": url,
+                                  "caption": p["caption"], "first_comment": p.get("comment", ""), "title": Path(p["name"]).stem[:90],
+                                  "post_id": p["id"], "batch": p["batch"]}, timeout=30)
+    if r.status_code >= 400:
+        raise RuntimeError(f"Zapier answered HTTP {r.status_code}")
+
+
+def zapier_test(key: str) -> dict:
+    """Sends a harmless test payload so the Zap editor can pick up the fields (no post is made: the Zap is off while you build it)."""
+    import requests
+    hook = veo.load().get(key, "")
+    if not hook.startswith("https://hooks.zapier.com/"):
+        return {"ok": False, "message": "Ilagay muna ang Catch Hook URL (https://hooks.zapier.com/...)."}
+    r = requests.post(hook, json={"platform": "test", "kind": "test", "media_url": "https://example.com/test.mp4",
+                                  "caption": "Test lang mula sa Bot Office", "first_comment": "", "title": "test", "post_id": "test", "batch": "test"}, timeout=30)
+    return {"ok": r.status_code < 400, "message": "Naipadala ang test ✅ — sa Zap editor, pindutin ang 'Test trigger'." if r.status_code < 400 else f"HTTP {r.status_code}"}
+
+
+def make_photo(src: Path, out_dir: Path) -> str:
+    """4:5 (1080x1350) version of a picture for the Facebook / Instagram feed, blurred fill instead of cropping."""
+    import subprocess
+    out = out_dir / "post_4x5.jpg"
+    if not content.FFMPEG:
+        import shutil
+        shutil.copyfile(src, out)
+        return out.name
+    fc = ("[0]scale=1080:1350:force_original_aspect_ratio=increase,crop=1080:1350,boxblur=24:2[bg];"
+          "[0]scale=1080:1350:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2")
+    subprocess.run([content.FFMPEG, "-y", "-v", "error", "-i", str(src), "-filter_complex", fc, "-frames:v", "1", "-q:v", "2", str(out)],
+                   check=True, timeout=120)
+    return out.name
+
+
+def post_facebook_photo(photo: Path, caption: str) -> str:
+    import requests
+    m = _meta()
+    with photo.open("rb") as fh:
+        j = _check(requests.post(f"{GRAPH}/{m['ver']}/{m['page']}/photos", data={"caption": caption, "access_token": m["token"]},
+                                 files={"source": fh}, timeout=120))
+    return f"https://www.facebook.com/{j.get('post_id') or j.get('id')}"
 
 
 def meta_ready(platform: str) -> bool:
@@ -281,9 +355,10 @@ UPLOAD_PAGES = {"tiktok": "https://www.tiktok.com/tiktokstudio/upload",
 
 def claude_prompt(p: dict) -> str:
     """Ready-made instructions for Claude in Chrome (the 'hand the job to your Claude' step)."""
-    steps = [f"Please post this video on my {PLATFORMS[p['platform']]} account in this browser. I'm logged in.",
-             f"1. Open {UPLOAD_PAGES[p['platform']]}",
-             f"2. Upload the video file “{p['file_name']}” (it's in my Downloads after I click Download video). "
+    what = "photo" if p.get("kind") == "photo" else "video"
+    steps = [f"Please post this {what} on my {PLATFORMS[p['platform']]} account in this browser. I'm logged in.",
+             f"1. Open {UPLOAD_PAGES[p['platform']]}" + (" (choose Photo mode)" if what == "photo" and p["platform"] == "tiktok" else ""),
+             f"2. Upload the {what} file “{p['file_name']}” (it's in my Downloads after I click Download). "
              "If you can't attach files, wait for me to drag it in, then continue.",
              "3. Paste this caption exactly:\n---\n" + p["caption"] + "\n---"]
     if p["platform"] == "tiktok" and p.get("tiktok_link"):
@@ -317,7 +392,7 @@ def render_batch(bid: str, posts: list[dict], videos: list[dict]) -> str:
             badge = {"scheduled": ("📅 Scheduled", "#4da3ff"), "posted": ("✅ Posted", "#3ddc84"), "handoff": ("🤖 Hand to Claude now", "#ffb02e"),
                      "posting": ("⏳ Posting…", "#a77bff"), "failed": ("⚠️ Failed", "#e84a5f")}.get(st, (st, "#9c96c9"))
             when = datetime.fromisoformat(p["slot"]).strftime("%a %b %d, %I:%M %p").replace(" 0", " ")
-            how = "auto-post (Meta API)" if p.get("auto") else "hand to Claude"
+            how = {"zapier": "auto-post (Zapier)", "meta": "auto-post (Meta API)"}.get(p.get("route"), "auto-post" if p.get("auto") else "hand to Claude")
             link = f' · <a href="{e(p["post_url"])}" target="_blank">open post</a>' if p.get("post_url") else ""
             err = f'<p class="err">{e(p["error"])}</p>' if p.get("error") else ""
             extra = f'<p class="muted">First comment: {e(p["comment"])}</p>' if p.get("comment") else ""
@@ -335,8 +410,13 @@ def render_batch(bid: str, posts: list[dict], videos: list[dict]) -> str:
         review = "".join(f"<li>{e(x)}</li>" for x in v["review"]) or "<li>✅ Edit looks good</li>"
         links = "".join(f"<li>{'✅' if s == 'ok' else '⚠️' if s == 'warn' else '❌'} {e(k)}: {e(u)}{' — ' + e('; '.join(n)) if n else ''}</li>"
                         for k, u, s, n in v["links"] if s != "none") or "<li>No affiliate links on this video</li>"
-        rows.append(f"""<section class="video"><div class="left"><video src="/outbox/{v['job']}/{e(v['media'])}" controls playsinline></video>
-<a class="btn" href="/outbox/{v['job']}/{e(v['media'])}" download="{e(v['file_name'])}">⬇ Download video</a></div>
+        src = f"/outbox/{v['job']}/{e(v['media'])}"
+        if v.get("kind") == "photo":
+            left = (f"<img src='{src}' alt=''><a class='btn' href='{src}' download='{e(v['file_name'])}'>⬇ 9:16 (TikTok)</a>"
+                    + (f"<a class='btn' href='/outbox/{v['job']}/{e(v['photo'])}' download>⬇ 4:5 (FB / IG)</a>" if v.get("photo") else ""))
+        else:
+            left = f"<video src='{src}' controls playsinline></video><a class='btn' href='{src}' download='{e(v['file_name'])}'>⬇ Download video</a>"
+        rows.append(f"""<section class="video"><div class="left">{left}</div>
 <div class="right"><h2>🎬 {e(v['name'])}</h2>
 <h4>JP · review of the edit</h4><ul>{review}</ul><h4>Asher · link check</h4><ul>{links}</ul>{''.join(cards)}{pack_html(v)}</div></section>""")
     import prompt_library
@@ -345,7 +425,7 @@ def render_batch(bid: str, posts: list[dict], videos: list[dict]) -> str:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{{font:15px/1.5 system-ui,sans-serif;background:#0b2a3a;color:#eafaff;margin:0;padding:22px}}
 h1{{margin:0 0 4px}} .muted{{color:#9cc7d6;font-size:13px}} .video{{display:flex;gap:20px;flex-wrap:wrap;background:#103a4f;border:1px solid #1f6a86;border-radius:16px;padding:16px;margin:16px 0}}
-.left{{width:240px}} video{{width:240px;aspect-ratio:9/16;border-radius:12px;background:#000}} .right{{flex:1;min-width:280px}}
+.left{{width:240px}} video,.left img{{width:240px;aspect-ratio:9/16;object-fit:contain;border-radius:12px;background:#000}} .right{{flex:1;min-width:280px}}
 .post{{background:#0b2a3a;border-radius:12px;padding:10px 14px;margin:10px 0}} h3{{margin:4px 0}} h4{{margin:10px 0 2px;color:#ffd23d}}
 pre{{white-space:pre-wrap;background:#06202c;border-radius:8px;padding:10px;font:inherit;font-size:14px}}
 .badge{{color:#10202a;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800}} .err{{color:#ff8a8a}}

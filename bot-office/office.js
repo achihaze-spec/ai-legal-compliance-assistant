@@ -1771,10 +1771,18 @@
     try {
       const j = await (await fetch('/api/content/batch', { method: 'POST', body: fd })).json();
       if (!j.ok) throw new Error(j.error || j.detail || 'error');
-      Sound.play('upload'); feed(botById.asher, `Content batch started: ${j.videos} video(s) 🎬 (JP is editing)`);
+      Sound.play('upload'); feed(botById.asher, `Content batch started: ${j.videos} file(s) 🎬 (JP is editing)`);
       contForm.reset(); contRows.innerHTML = ''; contModal.classList.add('hidden'); contMsg.textContent = '';
     } catch (err) { contMsg.textContent = 'Hindi nagsimula: ' + err.message; }
     btn.disabled = false;
+  };
+  document.getElementById('zapTest').onclick = async () => {
+    const info = document.getElementById('zapInfo');
+    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formJSON()) });
+    info.textContent = 'Sending…';
+    const fd = new FormData(); fd.append('key', document.getElementById('zapWhich').value);
+    const j = await (await fetch('/api/zapier/test', { method: 'POST', body: fd })).json();
+    info.textContent = (j.ok ? '' : '❌ ') + j.message;
   };
   document.getElementById('metaTest').onclick = async () => {
     const info = document.getElementById('metaInfo');
