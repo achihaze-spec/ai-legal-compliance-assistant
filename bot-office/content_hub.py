@@ -491,9 +491,12 @@ def pack_html(v: dict) -> str:
             + prompt_library.render_pack(v["prompt_pack"], v["name"]) + "</details>")
 
 
-def render_batch(bid: str, posts: list[dict], videos: list[dict], refs: list | None = None) -> str:
+def render_batch(bid: str, posts: list[dict], videos: list[dict], refs: list | None = None, insp: list | None = None) -> str:
     e = html.escape
     rows = []
+    if insp:
+        import inspo
+        rows.append(inspo.render(insp, "/outbox/"))
     if refs:
         icon = {"brief": "📄", "sheet": "📊", "audio": "🎵"}
         items = "".join(f"<li>{icon.get(r['kind'], '📎')} <b>{e(r['name'])}</b> <span class='muted'>· {e(r['note'])}</span>"
@@ -558,7 +561,7 @@ h1{{margin:0 0 4px}} .muted{{color:#9cc7d6;font-size:13px}} .video{{display:flex
 pre{{white-space:pre-wrap;background:#06202c;border-radius:8px;padding:10px;font:inherit;font-size:14px}}
 .badge{{color:#10202a;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800}} .err{{color:#ff8a8a}}
 button,a.btn{{background:#ffd23d;color:#2a1a00;border:0;border-radius:8px;padding:7px 11px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;margin:4px 4px 0 0;font-size:13px}}
-a{{color:#7fe3ff}}</style><style>{pcss}</style></head><body><h1>📱 Content Hub · batch {e(bid)}</h1>
+a{{color:#7fe3ff}} img.sheet{{max-width:min(100%,560px);border-radius:10px;margin:6px 0}}</style><style>{pcss}</style></head><body><h1>📱 Content Hub · batch {e(bid)}</h1>
 <p class="muted">JP edits · Asher writes the SEO captions and checks the links · Shane (TikTok + basket) · Jacob (Shopee link on Facebook / Instagram) ·
 Ashley schedules · David posts. Facebook and Instagram post by themselves when the Meta connection is set in ⚙️; TikTok posts are handed to Claude in Chrome
 (TikTok has no public API for product links). Reload to see the latest status.</p>

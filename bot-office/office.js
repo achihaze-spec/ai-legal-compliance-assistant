@@ -1762,19 +1762,19 @@
   contForm.onsubmit = async (e) => {
     e.preventDefault();
     if (!live) { contMsg.textContent = 'Offline: buksan muna ang server.'; return; }
-    if (!contFiles.files.length) { contMsg.textContent = 'Pumili muna ng video.'; return; }
+    if (!contFiles.files.length && !contForm.elements.inspo_links.value.trim()) { contMsg.textContent = 'Pumili ng file o maglagay ng inspo link.'; return; }
     const plats = [...contForm.querySelectorAll('input[name=plat]:checked')].map((x) => x.value);
     if (!plats.length) { contMsg.textContent = 'Pumili ng kahit isang platform.'; return; }
     const fd = new FormData();
     [...contFiles.files].forEach((f) => fd.append('files', f));
     fd.append('meta', JSON.stringify([...contRows.querySelectorAll('.crow')].map((r) => (r.classList.contains('ref') ? {} : {
       tiktok: r.querySelector('.c-tt').value, shopee: r.querySelector('.c-sp').value, notes: r.querySelector('.c-nt').value }))));
-    fd.append('platforms', plats.join(',')); fd.append('when', contForm.elements.when.value);
+    fd.append('platforms', plats.join(',')); fd.append('when', contForm.elements.when.value); fd.append('inspo_links', contForm.elements.inspo_links.value);
     const btn = contForm.querySelector('.primary'); btn.disabled = true; contMsg.textContent = 'Uploading…';
     try {
       const j = await (await fetch('/api/content/batch', { method: 'POST', body: fd })).json();
       if (!j.ok) throw new Error(j.error || j.detail || 'error');
-      Sound.play('upload'); feed(botById.asher, `Content batch started: ${j.videos} video/photo(s)` + (j.refs ? ` + ${j.refs} reference file(s) 📎` : '') + ' 🎬');
+      Sound.play('upload'); feed(botById.asher, `Content batch started: ${j.videos} video/photo(s)` + (j.refs ? ` + ${j.refs} reference file(s) 📎` : '') + (j.inspo ? ` + ${j.inspo} inspo link(s) ✨` : '') + ' 🎬');
       contForm.reset(); contRows.innerHTML = ''; contModal.classList.add('hidden'); contMsg.textContent = '';
     } catch (err) { contMsg.textContent = 'Hindi nagsimula: ' + err.message; }
     btn.disabled = false;

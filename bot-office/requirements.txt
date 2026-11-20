@@ -11,3 +11,4 @@ imageio-ffmpeg  # bundled ffmpeg for Video Editor (no separate install needed)
 google-genai  # optional: Veo/Gemini image automation for Affiliate Studio
 anthropic  # optional: lets Claude review documents and write captions
 openpyxl  # read Excel product lists in the Content Hub
+yt-dlp  # Content Hub inspo: download public reference videos to watch them

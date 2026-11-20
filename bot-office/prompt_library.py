@@ -463,11 +463,13 @@ DEFAULT_SETTING = {
 }
 
 
-def pick(name: str, notes: str = "", has_model: bool = False, has_bg: bool = False, colors: int = 0) -> dict:
+def pick(name: str, notes: str = "", has_model: bool = False, has_bg: bool = False, colors: int = 0, inspo: bool = False) -> dict:
     """The prompt pack for one product: [{id, why}] in the order to use them."""
     st = subtype(name, notes)
     chosen: list[tuple[str, str]] = [("master", "Plano ng buong 30-second video (script, scenes, Flow prompts, CapCut)"),
                                      ("hybrid", "Para hindi magbago ang itsura ng produkto: original photo sa product shots")]
+    if inspo:
+        chosen.insert(1, ("recreate", "May inspo ka: i-upload ang na-download na inspo sa ChatGPT/Gemini at gayahin ang structure (hindi ang content)"))
     fashion = st in ("apparel", "dress", "shoes")
     if fashion:
         if has_model:
@@ -549,8 +551,8 @@ def values_for(name: str, notes: str = "", model_name: str = "", setting: str = 
 
 
 def pack(name: str, notes: str = "", has_model: bool = False, model_name: str = "", has_bg: bool = False,
-         colors: int = 0, script: str = "", setting: str = "") -> dict:
-    sel = pick(name, notes, has_model, has_bg, colors)
+         colors: int = 0, script: str = "", setting: str = "", inspo: bool = False) -> dict:
+    sel = pick(name, notes, has_model, has_bg, colors, inspo)
     vals = values_for(name, notes, model_name, setting, script, sel["subtype"])
     items = []
     for it in sel["items"]:
