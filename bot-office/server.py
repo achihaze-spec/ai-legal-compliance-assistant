@@ -760,7 +760,7 @@ async def content_batch(files: list[UploadFile] = File(...), meta: str = Form("[
         name = Path(f.filename or "video").name
         ext = Path(name).suffix.lower()
         data = await f.read()
-        if ext not in content.VIDEO_EXT or len(data) > MAX_MEDIA_BYTES:
+        if ext not in (content.VIDEO_EXT | {".jpg", ".jpeg", ".png"}) or len(data) > MAX_MEDIA_BYTES:
             continue
         vid = uuid.uuid4().hex[:10]
         path = UPLOADS / f"{vid}{ext}"
@@ -769,7 +769,7 @@ async def content_batch(files: list[UploadFile] = File(...), meta: str = Form("[
         items.append({"id": vid, "name": name, "path": path, "tiktok": str(r.get("tiktok", "")).strip(),
                       "shopee": str(r.get("shopee", "")).strip(), "notes": str(r.get("notes", "")).strip()[:500]})
     if not items:
-        return {"ok": False, "error": "Walang video na natanggap (mp4, mov, m4v, webm)."}
+        return {"ok": False, "error": "Walang file na natanggap (video: mp4, mov, m4v, webm · larawan: jpg, png)."}
     bid = start_batch(items, plats, when if when in ("slots", "now") else "slots")
     return {"ok": True, "batch": bid, "videos": len(items)}
 
@@ -788,7 +788,10 @@ def run_content_batch(job: dict) -> None:
             _paced("jp", t0)
             emit(bot="jp", type="done", task=f"{vid}-jp", ok=False, text=f"Couldn't edit {name}: {exc}")
             continue
-        review = content_hub.review_edit(it["path"], media, out)
+        mkind = "photo" if media["kind"] == "image" else "video"
+        photo = content_hub.make_photo(it["path"], out) if mkind == "photo" else None
+        review = content_hub.review_edit(it["path"], media, out) if mkind == "video" else (
+            [f"Maliit ang larawan ({i['width']}x{i['height']}): baka malabo"] if (i := content_hub.probe(it["path"])).get("width") and min(i["width"], i["height"]) < 720 else [])
         _paced("jp", t0)
         emit(bot="jp", type="done", task=f"{vid}-jp", level="MEDIUM" if review else "LOW",
              text=f"{name}: {media['note']}" + (f" · review: {len(review)} note(s)" if review else " · review ✅"))
@@ -807,12 +810,13 @@ def run_content_batch(job: dict) -> None:
              text=f"“{cap['hook']}” (+{len(cap['hashtags'])} hashtags, by {cap['by']})" + (f" · ⚠️ {len(bad)} link issue(s)" if bad else ""))
         tiktok = it["tiktok"] if links[0][2] in ("ok", "warn") else ""
         shopee = it["shopee"] if links[1][2] in ("ok", "warn") else ""
-        file_name = f"{Path(name).stem}_9x16.mp4"
+        file_name = f"{Path(name).stem}_9x16." + ("jpg" if mkind == "photo" else "mp4")
         for plat in plats:
             caption, comment = content_hub.platform_caption(cap, plat, shopee, tiktok)
             posts.append({"id": content_hub.new_id(), "batch": bid, "video": vid, "job": vid, "platform": plat, "caption": caption,
-                          "comment": comment, "tiktok_link": tiktok, "shopee_link": shopee, "media": media["media"],
-                          "file_name": file_name, "name": name, "status": "new"})
+                          "comment": comment, "tiktok_link": tiktok, "shopee_link": shopee,
+                          "media": photo if (photo and plat in ("facebook", "instagram")) else media["media"], "kind": mkind,
+                          "file_name": file_name if plat == "tiktok" or not photo else f"{Path(name).stem}_4x5.jpg", "name": name, "status": "new"})
         # Shane + Jacob
         if "tiktok" in plats:
             emit(bot="shane", type="task", task=f"{vid}-shane", text=f"TikTok post + basket: {name}", secs=MIN_STEP_SECS["shane"])
@@ -825,7 +829,8 @@ def run_content_batch(job: dict) -> None:
             emit(bot="jacob", type="done", task=f"{vid}-jacob",
                  text=f"{name}: " + ("🛒 Shopee link in the Facebook caption + Instagram first comment" if shopee else "captions ready (no Shopee link)"))
         pk = prompt_library.pack(product or (it["notes"].split(",")[0].strip()[:80] if it["notes"] else content._topic(name)), it["notes"], script=cap["hook"])
-        videos.append({"id": vid, "job": vid, "name": name, "file_name": file_name, "media": media["media"], "review": review, "links": links,
+        videos.append({"id": vid, "job": vid, "name": name, "file_name": file_name, "media": media["media"], "kind": mkind, "photo": photo,
+                       "review": review, "links": links,
                        "prompt_pack": pk})
     if not videos:
         return
@@ -842,7 +847,14 @@ def run_content_batch(job: dict) -> None:
             slots = content_hub.next_slots(len(videos), taken)
         slot_of = {v["id"]: s.isoformat() for v, s in zip(videos, slots)}
         for p in posts:
-            p.update(slot=slot_of[p["video"]], status="scheduled", auto=content_hub.meta_ready(p["platform"]))
+            route = ("zapier" if content_hub.zapier_ready(p["platform"], p["kind"]) else
+                     "meta" if content_hub.meta_ready(p["platform"]) and not (p["kind"] == "photo" and p["platform"] == "instagram") else "")
+            p.update(slot=slot_of[p["video"]], status="scheduled", auto=bool(route), route=route)
+            if route == "zapier":   # copy now, so Drive for desktop has uploaded it by the time it's due
+                try:
+                    p["drive_file"] = str(content_hub.stage_to_drive(p, OUTBOX / p["job"] / p["media"]))
+                except OSError as exc:
+                    p.update(route="", auto=False, error=f"Couldn't copy to the Drive folder: {exc}")
         content_hub.save_posts(allp + posts)
     BATCHES.mkdir(parents=True, exist_ok=True)
     (BATCHES / f"{bid}.json").write_text(json.dumps(videos, ensure_ascii=False, default=str))
@@ -883,6 +895,16 @@ def content_post_action(pid: str, action: str):
     raise HTTPException(400)
 
 
+@app.post("/api/zapier/test")
+def zapier_test(key: str = Form(...)):
+    if key not in content_hub.ZAP_KEYS.values():
+        raise HTTPException(400)
+    try:
+        return content_hub.zapier_test(key)
+    except Exception as exc:
+        return {"ok": False, "message": f"{type(exc).__name__}: {str(exc)[:160]}"}
+
+
 @app.post("/api/meta/test")
 def meta_test():
     try:
@@ -893,13 +915,35 @@ def meta_test():
 
 def run_due_post(p: dict) -> None:
     plat = content_hub.PLATFORMS[p["platform"]]
-    video = OUTBOX / p["job"] / p["media"]
-    if p["platform"] in ("facebook", "instagram") and content_hub.meta_ready(p["platform"]):
+    media = OUTBOX / p["job"] / p["media"]
+    if p.get("route") == "zapier" and content_hub.zapier_ready(p["platform"], p.get("kind", "video")):
+        df = Path(p.get("drive_file") or content_hub.stage_to_drive(p, media))
+        url = content_hub.drive_public_url(df)
+        if not url:   # Drive for desktop hasn't uploaded it yet: try again on the next round, give up after 45 minutes
+            late = (datetime.now(content.MANILA) - datetime.fromisoformat(p["slot"])).total_seconds() / 60
+            if late < 45:
+                return
+            content_hub.update_post(p["id"], status="failed", error="Hindi pa na-upload ng Google Drive for desktop ang file. Naka-on ba ang Drive?")
+            emit(bot="david", type="done", task=f"{p['id']}-david", ok=False, url=f"/content/{p['batch']}", text=f"{plat}: Drive didn't upload {p['name']}")
+            return
+        emit(bot="david", type="task", task=f"{p['id']}-david", text=f"Zapier → {plat}: {p['name']}", secs=6)
+        try:
+            content_hub.send_zapier(p, url)
+            content_hub.update_post(p["id"], status="posted", error="", note="Sent to Zapier: check the Zap history if it doesn't show up")
+            emit(bot="david", type="done", task=f"{p['id']}-david", url=f"/content/{p['batch']}", text=f"Sent to Zapier → {plat}: {p['name']} ✅")
+        except Exception as exc:
+            content_hub.update_post(p["id"], status="failed", error=str(exc)[:300])
+            emit(bot="david", type="done", task=f"{p['id']}-david", ok=False, url=f"/content/{p['batch']}", text=f"Zapier failed: {str(exc)[:120]}")
+        return
+    if p.get("route", "meta" if p.get("auto") else "") == "meta" and content_hub.meta_ready(p["platform"]):
         content_hub.update_post(p["id"], status="posting")
         emit(bot="david", type="task", task=f"{p['id']}-david", text=f"Posting on {plat}: {p['name']}", secs=20)
         try:
-            url = (content_hub.post_facebook_reel(video, p["caption"]) if p["platform"] == "facebook"
-                   else content_hub.post_instagram_reel(video, p["caption"], p.get("comment", "")))
+            if p.get("kind") == "photo":
+                url = content_hub.post_facebook_photo(media, p["caption"])
+            else:
+                url = (content_hub.post_facebook_reel(media, p["caption"]) if p["platform"] == "facebook"
+                       else content_hub.post_instagram_reel(media, p["caption"], p.get("comment", "")))
             content_hub.update_post(p["id"], status="posted", post_url=url, error="")
             emit(bot="david", type="done", task=f"{p['id']}-david", url=url or f"/content/{p['batch']}", text=f"Posted on {plat}: {p['name']} ✅")
         except Exception as exc:

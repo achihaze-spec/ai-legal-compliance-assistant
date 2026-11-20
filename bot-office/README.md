@@ -49,6 +49,30 @@ and the Affiliate Studio, **Asher picks a Prompt Pack**: the right prompts for t
 serum, skincare, makeup, perfume, decor, food, gadgets...) and for what you have (model photo, background photo), in the
 order to use them, with the known [placeholders] filled in (product, model name, setting, voice, script hook).
 
+### ⚡ Post to Facebook and Instagram with Zapier (easiest)
+Pictures (JPG/PNG) work too: JP makes a 9:16 version for TikTok and a 4:5 version for the Facebook/Instagram feed.
+Zapier can't schedule and needs a public link to the file, so David keeps the schedule and Google Drive hosts the file:
+1. In Google Drive make a folder, e.g. **Content Hub Posts**, and share it as **Anyone with the link · Viewer**
+   (only put post media in it). In Bot Office ⚙️ → 📱 Content Hub, put that folder's path on your Mac
+   (Google Drive for desktop: ~/Library/CloudStorage/GoogleDrive-…/My Drive/Content Hub Posts).
+2. In Zapier make one Zap per post type (2-step Zaps work on the free plan):
+   - Trigger **Webhooks by Zapier → Catch Hook**. Copy the hook URL into the matching ⚙️ field, press
+     **⚡ Send a test to Zapier**, then **Test trigger** in Zapier so it sees the fields.
+   - Action:
+     - Instagram Reel: **Instagram for Business → Publish Video**: Video = `media_url`, Caption = `caption`, account @achifindsph.
+     - Instagram photo: **Instagram for Business → Publish Photo(s)**: Photo = `media_url`, Caption = `caption`.
+     - Facebook video: **Facebook Pages → Create Page Video**: Page = achiinspires, Video = `media_url`,
+       Description = `caption`, Title = `title`.
+     - Facebook photo: **Facebook Pages → Create Page Photo**: Photo = `media_url`, Message = `caption`.
+   - Turn the Zap on.
+3. At each slot David sends `{platform, kind, media_url, caption, first_comment, title}` to the right hook.
+   If Drive for desktop hasn't uploaded the file yet, he waits and retries for up to 45 minutes.
+
+Notes: Instagram publishing through Zapier needs an Instagram **Business** account linked to the Facebook Page.
+Zapier's Facebook action posts a Page video (not the Reels tab). The 2-step Zap can't add the Instagram first comment, so the
+caption says "Link sa bio o comments". TikTok still goes to Claude in Chrome (no product-link API).
+From Canva: download the design (MP4 or PNG) and upload it in 📱 Content, or ask Claude in chat to export it.
+
 ### Connect Facebook and Instagram
 1. Your Instagram must be a Professional (Business or Creator) account linked to your Facebook Page.
 2. At developers.facebook.com create an app (type Business), add the Facebook Login for Business and Instagram products.

@@ -41,7 +41,12 @@ DEFAULTS = {
     "meta_page_id": "",             # Facebook Page for auto-posting Reels
     "meta_page_token": "",          # Page access token (secret)
     "meta_ig_user_id": "",          # Instagram Professional account linked to the Page
-    "meta_graph_version": "v23.0",             # local Google Drive for desktop folder for case outputs (outputs.py)
+    "meta_graph_version": "v23.0",
+    "content_drive_folder": "",     # Drive for desktop folder shared "Anyone with the link": public links for Zapier
+    "zap_ig_reel": "",              # Zapier Catch Hook URLs, one Zap per post type
+    "zap_ig_photo": "",
+    "zap_fb_video": "",
+    "zap_fb_photo": "",             # local Google Drive for desktop folder for case outputs (outputs.py)
 }
 
 
@@ -59,7 +64,7 @@ def save(new: dict) -> dict:
     for k, v in new.items():
         if k not in DEFAULTS:
             continue
-        if k in ("api_key", "ollama_api_key", "meta_page_token") and (not v or "•" in v):
+        if k in ("api_key", "ollama_api_key", "meta_page_token", "zap_ig_reel", "zap_ig_photo", "zap_fb_video", "zap_fb_photo") and (not v or "•" in v):
             continue  # masked value sent back unchanged
         if isinstance(DEFAULTS[k], float):
             v = float(v)
@@ -77,7 +82,7 @@ def save(new: dict) -> dict:
 
 def public(s: dict | None = None) -> dict:
     s = dict(s or load())
-    for f in ("api_key", "ollama_api_key", "meta_page_token"):
+    for f in ("api_key", "ollama_api_key", "meta_page_token", "zap_ig_reel", "zap_ig_photo", "zap_fb_video", "zap_fb_photo"):
         k = s.get(f, "")
         s[f] = (k[:4] + "•" * 8 + k[-4:]) if len(k) > 10 else ("•" * len(k))
     s["configured"] = configured(s)
