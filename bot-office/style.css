@@ -146,3 +146,18 @@ span.avatar::before, span.avatar::after { content: ""; position: absolute; top: 
 fieldset.plats { border: 1px solid #3a3270; border-radius: 12px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px 16px; color: #cfc9ff; font-size: 13px; }
 .crow.ref { border-style: dashed; }
 .crow small { color: #9c96c9; font-size: 12px; }
+.resbtn { background: #ffb02e; color: #2a1800; border: 0; border-radius: 8px; padding: 6px 12px; font-weight: 800; cursor: pointer; }
+
+.cmdbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(760px, calc(100% - 120px)); z-index: 6;
+  background: rgba(16, 14, 34, .92); border: 1px solid #3a3270; border-radius: 18px; padding: 8px 10px; box-shadow: 0 8px 30px rgba(0,0,0,.35); backdrop-filter: blur(6px); }
+.cmdbar .row { display: flex; gap: 8px; align-items: flex-end; }
+.cmdbar textarea { flex: 1; resize: none; background: transparent; border: 0; color: #fff; font: 14px/1.4 system-ui, sans-serif; padding: 8px 4px; max-height: 120px; outline: none; }
+.cmdbar .attach, .cmdbar .send { border: 0; border-radius: 12px; width: 40px; height: 38px; font-size: 18px; cursor: pointer; }
+.cmdbar .attach { background: #2a2450; color: #fff; } .cmdbar .send { background: #ff6fae; color: #1a0d18; font-weight: 900; }
+.cmdbar .send:disabled { opacity: .5; }
+.cmdbar .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmdbar .chips span { background: #2a2450; color: #e9e6ff; border-radius: 99px; padding: 3px 10px; font-size: 12px; }
+.cmdbar .chips span b { cursor: pointer; margin-left: 6px; color: #ff8a8a; }
+.cmdmsg { font-size: 12px; color: #b9b3e6; padding: 2px 6px; min-height: 0; }
+@media (max-width: 700px) { .cmdbar { width: calc(100% - 20px); bottom: 64px; } }
+.topbar .stats button { white-space: nowrap; }

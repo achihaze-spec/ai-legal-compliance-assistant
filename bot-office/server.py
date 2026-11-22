@@ -36,6 +36,8 @@ import kyb_docs
 import content_hub
 import prompt_library
 import inspo
+import osint
+import commander
 import outputs
 import content
 
@@ -54,7 +56,7 @@ DOC_EXT = {".pdf", ".docx", ".html", ".htm", ".txt", ".md"}
 MEDIA_EXT = content.VIDEO_EXT | content.IMAGE_EXT
 MAX_BYTES = 25 * 1024 * 1024
 MAX_MEDIA_BYTES = 500 * 1024 * 1024
-MIN_STEP_SECS = {"doc": 4, "reg": 5, "risk": 4, "vid": 5, "cap": 4, "sched": 3, "post": 3,
+MIN_STEP_SECS = {"taks": 5, "doc": 4, "reg": 5, "risk": 4, "vid": 5, "cap": 4, "sched": 3, "post": 3,
                  "jp": 5, "asher": 4, "shane": 3, "jacob": 3, "ashley": 3, "david": 3}  # so you can actually watch them work
 
 app = FastAPI(title="Bot Office")
@@ -215,6 +217,128 @@ async def kyc_start(request: Request):
     return {"ok": True, "job": jid}
 
 
+@app.post("/api/research")
+async def research_start(request: Request):
+    form = {k: (v if isinstance(v, str) else "") for k, v in dict(await request.form()).items()}
+    q = form.get("q", "").strip()
+    if not q:
+        return {"ok": False, "error": "Ano ang ire-research ni Taks?"}
+    kind = form.get("kind", "auto")
+    kind = kind if kind in osint.TYPES else osint.detect(q)
+    purpose = form.get("purpose", "") or "General research"
+    if kind == "person" and purpose == "General research":
+        return {"ok": False, "error": "Para sa tao, pumili ng lehitimong purpose (hal. KYC, AML, fraud) — Data Privacy Act."}
+    jid = uuid.uuid4().hex[:10]
+    _jobs.put({"kind": "osint", "id": jid, "name": q[:60], "q": q, "type": kind, "country": form.get("country", "").strip(),
+               "purpose": purpose, "notes": form.get("notes", "").strip()[:1000], "web": form.get("web") == "1"})
+    emit(bot="taks", type="task", task=f"{jid}-osint", text=f"OSINT · {osint.TYPES[kind]}: {q[:50]}", secs=MIN_STEP_SECS["taks"])
+    return {"ok": True, "job": jid, "kind": kind}
+
+
+@app.post("/api/command")
+async def command(text: str = Form(""), files: list[UploadFile] = File(default=[])):
+    """Hazel's command box: any instruction + any files, routed to the right team."""
+    text = text.strip()
+    if not text and not files:
+        return {"ok": False, "error": "Isulat ang utos o mag-attach ng file."}
+    cid = uuid.uuid4().hex[:10]
+    folder = UPLOADS / f"cmd_{cid}"
+    folder.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for f in files:
+        data = await f.read()
+        if not data or len(data) > MAX_MEDIA_BYTES:
+            continue
+        name = re.sub(r"[^\w.\- ()]+", "_", Path(f.filename or "file").name)[:120] or "file"
+        (folder / name).write_bytes(data)
+        saved.append(folder / name)
+    rt = commander.route(text, [p.name for p in saved])
+    act, subj = rt["action"], rt["subject"]
+    if act == "research" and rt["entity"] and rt["kind"] == "person" and rt["purpose"] == "General research":
+        return {"ok": False, "error": "Para mag-research ng tao, sabihin ang purpose (hal. 'KYC', 'fraud', 'vendor check') — Data Privacy Act."}
+    emit(bot="mgr", type="log", text=f"📨 “{text[:80]}”" + (f" + {len(saved)} file(s)" if saved else "") + f" → {commander.LABEL[act]}")
+    if act == "kyb":
+        form = {"kind": "business", "name": rt["entity"] or (subj if len(subj) > 2 and not saved else ""),
+                "drive_link": rt["drive"][0] if rt["drive"] else (str(folder) if saved else ""),
+                "country": next((c.title() for c in osint.COUNTRIES if re.search(rf"\b{re.escape(c)}\b", text, re.I)), "")}
+        if not form["drive_link"] and not form["name"]:
+            return {"ok": False, "error": "Para sa KYB: ilagay ang pangalan ng negosyo, i-attach ang documents, o i-paste ang Drive link."}
+        jid = uuid.uuid4().hex[:10]
+        _jobs.put({"kind": "kyc", "id": jid, "type": "business", "form": form})
+        emit(bot="doc", type="task", task=f"{jid}-intake", text=f"KYB intake: {form['name'] or 'documents'}", secs=3)
+        return {"ok": True, "action": act, "label": commander.LABEL[act]}
+    if act == "affiliate":
+        imgs = [p for p in saved if p.suffix.lower() in content.IMAGE_EXT]
+        jid = uuid.uuid4().hex[:10]
+        (AFFILIATE / jid).mkdir(parents=True, exist_ok=True)
+        _affiliate_jobs.put({"kind": "plan", "id": jid, "url": rt["product"][0], "owns": False, "notes": rt["notes"], "photos": imgs, "model": None})
+        emit(bot="cap", type="task", task=f"{jid}-cap", text=f"Write 5 affiliate scripts: {rt['product'][0][:60]}", secs=MIN_STEP_SECS["cap"])
+        return {"ok": True, "action": act, "label": commander.LABEL[act], "page": f"/reports/{jid}.html"}
+    if act == "content":
+        shopee = next((l for l in rt["product"] if "shope" in l), "")
+        tiktok = next((l for l in rt["product"] if "tiktok" in l), "")
+        inspo_links = [l for l in rt["links"] if l not in rt["product"]]
+        items, refs = [], []
+        for p in saved:
+            vid = uuid.uuid4().hex[:10]
+            if p.suffix.lower() in content_hub.VIDEO_EXTS | content_hub.IMAGE_EXTS:
+                items.append({"id": vid, "name": p.name, "path": p, "tiktok": tiktok, "shopee": shopee,
+                              "notes": ((rt["entity"] + ". ") if rt["entity"] else "") + rt["notes"][:500]})
+            else:
+                refs.append({"id": vid, "name": p.name, "path": str(p)})
+        plats = [k for k, pat in (("tiktok", r"tiktok"), ("facebook", r"\b(fb|facebook)\b"), ("instagram", r"\b(ig|instagram)\b"))
+                 if re.search(pat, text, re.I)] or ["tiktok", "facebook", "instagram"]
+        when = "now" if re.search(r"\b(now|ngayon na|agad)\b", text, re.I) else "slots"
+        start_batch(items, plats, when, refs, inspo_links, research=bool(rt["entity"] or rt["product"]))
+        return {"ok": True, "action": act, "label": commander.LABEL[act]}
+    if act == "review":
+        for p in saved:
+            if p.suffix.lower() in DOC_EXT:
+                jid = uuid.uuid4().hex[:10]
+                dest = UPLOADS / f"{jid}{p.suffix.lower()}"
+                shutil.copyfile(p, dest)
+                _jobs.put({"id": jid, "name": p.name, "path": dest})
+                emit(bot="doc", type="task", task=f"{jid}-doc", text=f"Read & extract: {p.name}", secs=MIN_STEP_SECS["doc"])
+        return {"ok": True, "action": act, "label": commander.LABEL[act]}
+    # research (anything): a named thing gets its own type; otherwise the whole question is a topic
+    q, kind = (rt["entity"], rt["kind"]) if rt["entity"] else (text, "topic")
+    if rt["entity"] and len(text.split()) > len(rt["entity"].split()) + 6 and kind == "person":
+        q, kind = text, "topic"
+    purpose = rt["purpose"]
+    if kind == "person" and purpose == "General research":
+        return {"ok": False, "error": "Para mag-research ng tao, sabihin ang purpose (hal. 'KYC', 'fraud', 'vendor check') — Data Privacy Act."}
+    notes = ""
+    for p in saved:
+        try:
+            notes += " " + content_hub.read_reference(p, p.name).get("text", "")[:800]
+        except Exception:
+            pass
+    jid = uuid.uuid4().hex[:10]
+    _jobs.put({"kind": "osint", "id": jid, "name": q[:60], "q": q, "type": kind, "country": "",
+               "purpose": purpose, "notes": notes.strip()[:1000], "web": True})
+    emit(bot="taks", type="task", task=f"{jid}-osint", text=f"OSINT · {osint.TYPES[kind]}: {q[:50]}", secs=MIN_STEP_SECS["taks"])
+    return {"ok": True, "action": "research", "label": commander.LABEL["research"]}
+
+
+def run_osint_job(job: dict) -> None:
+    jid = job["id"]
+    t0 = time.time()
+    r = osint.run(job["q"], job["type"], job["country"], job["purpose"], job["notes"], KYC_DIR / jid, LIST_CACHE, job["web"])
+    page = osint.render(r)
+    (REPORTS / f"{jid}.html").write_text(page, encoding="utf-8")
+    saved = None
+    try:
+        saved = outputs.save_case(job["q"][:60], "OSINT", r, page)
+    except Exception as exc:
+        emit(bot="mgr", type="log", text=f"Couldn't save to Drive: {exc}")
+    _paced("taks", t0)
+    level = {"ESCALATE": "HIGH", "REVIEW": "MEDIUM"}.get(r["outcome"], "LOW")
+    emit(bot="taks", type="done", task=f"{jid}-osint", url=f"/reports/{jid}.html", level=level,
+         text=f"{job['q'][:50]}: {r['outcome']} · {len(r['findings'])} finding(s)" + (f" · 📁 {saved.name}" if saved else ""))
+    if r["outcome"] == "ESCALATE":
+        emit(bot="mgr", type="log", text=f"🚩 Taks flagged {job['q'][:40]}: " + "; ".join(r["red"])[:160])
+
+
 @app.post("/api/ai/test")
 def ai_test():
     """Lists the models the chosen AI provider can use (Ollama), or says whether Claude is configured."""
@@ -303,8 +427,25 @@ def run_kyc_job(job: dict) -> None:
              text=f"{merchant}: {hits} potential hit(s)" + (f"; not screened: {', '.join(failed)}" if failed else ""))
     else:
         emit(bot="reg", type="done", task=f"{jid}-screen", text=f"{merchant}: {len(r['findings'])} finding(s)")
+    sweep = []
+    if t != "url":   # Taks: news mentions for the subject and the parties
+        names = [merchant] + [s["name"] for s in r.get("subjects", [])[1:5]]
+        emit(bot="taks", type="task", task=f"{jid}-sweep", text=f"OSINT sweep: {len(names)} name(s)", secs=MIN_STEP_SECS["taks"])
+        for n in names:
+            nw = osint.news(n, 8)
+            sweep.append({"name": n, "ok": nw["ok"], "items": nw["items"]})
+        r["osint_news"] = sweep
+        emit(bot="taks", type="done", task=f"{jid}-sweep", text=f"OSINT sweep: {sum(len(x['items']) for x in sweep)} news mention(s)")
     emit(bot="risk", type="task", task=f"{jid}-report", text=f"{label} report: {merchant}", secs=3)
     page = kyc.render(r) if t != "url" else kyc.render_url(r)
+    if sweep:
+        import html as _h
+        sec = "<h2>📰 Taks · OSINT news sweep (GDELT, 5 taon)</h2>" + "".join(
+            f"<h3>{_h.escape(x['name'])}</h3>" + ("<ul>" + "".join(f"<li>{_h.escape(a['date'])} · <a href='{_h.escape(a['url'])}' target='_blank'>{_h.escape(a['title'])}</a> "
+                                                              f"<small>{_h.escape(a['source'])}</small></li>" for a in x["items"]) + "</ul>" if x["items"]
+                                                   else "<p class='muted'>" + ("Walang news mention." if x["ok"] else "Hindi naabot ang GDELT: Analyst to run.") + "</p>")
+            for x in sweep) + "<p class='muted'>Ang news mention ay hindi patunay: i-verify kung parehong tao/kumpanya at kung allegation o napatunayan.</p>"
+        page = page.replace("</body>", sec + "</body>", 1)
     (REPORTS / f"{jid}.html").write_text(page, encoding="utf-8")
     saved = None
     try:
@@ -739,10 +880,11 @@ def run_job(job: dict) -> None:
 BATCHES = HERE / "data" / "content_hub" / "batches"
 
 
-def start_batch(items: list[dict], platforms: list[str], when: str, refs: list | None = None, links: list | None = None) -> str:
+def start_batch(items: list[dict], platforms: list[str], when: str, refs: list | None = None, links: list | None = None,
+                research: bool = True) -> str:
     bid = uuid.uuid4().hex[:10]
     _content_jobs.put({"id": bid, "name": f"{len(items)} file(s)", "items": items, "platforms": platforms, "when": when, "refs": refs or [],
-                       "inspo": links or []})
+                       "inspo": links or [], "research": research})
     for u in links or []:
         b, plat = inspo.who(u)
         emit(bot=b, type="task", task=f"{bid}-inspo-{abs(hash(u)) % 10**8}", text=f"Watch inspo ({plat})", secs=12)
@@ -755,7 +897,7 @@ def start_batch(items: list[dict], platforms: list[str], when: str, refs: list |
 
 @app.post("/api/content/batch")
 async def content_batch(files: list[UploadFile] = File(default=[]), meta: str = Form("[]"), platforms: str = Form("tiktok,facebook,instagram"),
-                        when: str = Form("slots"), inspo_links: str = Form("")):
+                        when: str = Form("slots"), inspo_links: str = Form(""), research: str = Form("1")):
     import json as _json
     try:
         rows = _json.loads(meta)
@@ -781,7 +923,7 @@ async def content_batch(files: list[UploadFile] = File(default=[]), meta: str = 
     links = inspo.parse_links(inspo_links)
     if not items and not refs and not links:
         return {"ok": False, "error": "Walang file o inspo link na natanggap."}
-    bid = start_batch(items, plats, when if when in ("slots", "now") else "slots", refs, links)
+    bid = start_batch(items, plats, when if when in ("slots", "now") else "slots", refs, links, research == "1")
     return {"ok": True, "batch": bid, "videos": len(items), "refs": len(refs), "inspo": len(links)}
 
 
@@ -860,6 +1002,23 @@ def run_content_batch(job: dict) -> None:
     bid, items, plats = job["id"], job["items"], job["platforms"]
     videos, posts = [], []
     inspo_reports = watch_inspo(bid, job.get("inspo", [])) if job.get("inspo") else []
+    research = []
+    if job.get("research") and items:   # Taks: product research for the captions (one run per product)
+        done = {}
+        for it in items:
+            pname = content_hub.product_name(it["tiktok"] or it["shopee"]) or (it["notes"].split(",")[0].strip()[:80] if it["notes"] else "") \
+                    or content._topic(it["name"])
+            if pname not in done:
+                emit(bot="taks", type="task", task=f"{bid}-cr-{len(done)}", text=f"Product research: {pname[:50]}", secs=MIN_STEP_SECS["taks"])
+                try:
+                    done[pname] = osint.content_research(pname, it["notes"])
+                    emit(bot="taks", type="done", task=f"{bid}-cr-{len(done) - 1}", text=f"Researched {pname[:50]} for Asher 🔎")
+                except Exception as exc:
+                    done[pname] = None
+                    emit(bot="taks", type="done", task=f"{bid}-cr-{len(done) - 1}", ok=False, text=f"Research failed: {str(exc)[:80]}")
+            if done[pname] and done[pname]["summary"]:
+                it["notes"] = (it["notes"] + " " + done[pname]["summary"]).strip()
+        research = [r for r in done.values() if r]
     inspo_note = " ".join(inspo.summary_line(r) for r in inspo_reports)[:1500]
     for it in items:   # Asher writes captions in the inspo's style
         if inspo_note:
@@ -937,7 +1096,7 @@ def run_content_batch(job: dict) -> None:
     real = [v for v in videos if v.get("kind") != "plan"]
     BATCHES.mkdir(parents=True, exist_ok=True)
     if not real:
-        (BATCHES / f"{bid}.json").write_text(json.dumps({"videos": videos, "refs": refs_read, "inspo": inspo_reports}, ensure_ascii=False, default=str))
+        (BATCHES / f"{bid}.json").write_text(json.dumps({"videos": videos, "refs": refs_read, "inspo": inspo_reports, "research": research}, ensure_ascii=False, default=str))
         if videos or refs_read or inspo_reports:
             emit(bot="asher", type="log", url=f"/content/{bid}", text="✨📎 Done: open the batch page for the inspo breakdown, drafts and Prompt Packs")
         return
@@ -965,7 +1124,7 @@ def run_content_batch(job: dict) -> None:
                     p.update(route="", auto=False, error=f"Couldn't copy to the Drive folder: {exc}")
         content_hub.save_posts(allp + posts)
     BATCHES.mkdir(parents=True, exist_ok=True)
-    (BATCHES / f"{bid}.json").write_text(json.dumps({"videos": videos_all, "refs": refs_read, "inspo": inspo_reports}, ensure_ascii=False, default=str))
+    (BATCHES / f"{bid}.json").write_text(json.dumps({"videos": videos_all, "refs": refs_read, "inspo": inspo_reports, "research": research}, ensure_ascii=False, default=str))
     _paced("ashley", t0)
     first = min(slots)
     emit(bot="ashley", type="done", task=f"{bid}-ashley", url=f"/content/{bid}",
@@ -985,7 +1144,10 @@ def content_page(bid: str):
     data = json.loads((BATCHES / f"{bid}.json").read_text())
     videos, refs, insp = (data, [], []) if isinstance(data, list) else (data["videos"], data.get("refs", []), data.get("inspo", []))
     posts = [p for p in content_hub.load_posts() if p["batch"] == bid]
-    return HTMLResponse(content_hub.render_batch(bid, posts, videos, refs, insp))
+    page = content_hub.render_batch(bid, posts, videos, refs, insp)
+    if isinstance(data, dict) and data.get("research"):
+        page = page.replace("<section class=", osint.render_content(data["research"]) + "<section class=", 1)
+    return HTMLResponse(page)
 
 
 @app.get("/api/content/posts")
@@ -1093,7 +1255,7 @@ def worker() -> None:
     while True:
         job = _jobs.get()
         try:
-            (run_kyc_job if job.get("kind") == "kyc" else run_job)(job)
+            {"kyc": run_kyc_job, "osint": run_osint_job}.get(job.get("kind"), run_job)(job)
         except Exception as exc:  # never let one bad file kill the office
             emit(bot="mgr", type="log", text=f"Error on {job['name']}: {exc}")
 

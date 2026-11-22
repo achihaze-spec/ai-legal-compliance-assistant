@@ -28,6 +28,7 @@
       <span title="Tasks waiting"><b id="statQueue">0</b> queued</span>
       <span title="Tasks finished"><b id="statDone">0</b> done</span>
       <button class="kycbtn" id="kycBtn" title="KYC / KYB / sanctions / URL check">🛡️ KYC</button>
+      <button class="resbtn" id="resBtn" title="Taks: OSINT research (kahit ano)">🔎 Research</button>
       <button class="contbtn" id="contBtn" title="Content Hub: edit, caption, schedule and auto-post videos">📱 Content</button>
       <button class="affbtn" id="affBtn" title="Gumawa ng 5 affiliate videos mula sa product link">🛒 Affiliate</button>
       <button class="mute" id="setBtn" title="Settings">⚙️</button>
@@ -44,6 +45,16 @@
       <div class="dropzone" id="dropzone">
         <div>Drop the files to add them 📥<small>PDF/DOC → Compliance · Video/Image → Content<br>Drop on a bot to give it directly</small></div>
       </div>
+      <form class="cmdbar" id="cmdBar" autocomplete="off">
+        <div class="chips" id="cmdChips"></div>
+        <div class="row">
+          <button type="button" class="attach" id="cmdAttach" title="Mag-attach ng kahit anong file">📎</button>
+          <input type="file" id="cmdFiles" multiple hidden />
+          <textarea id="cmdText" rows="1" placeholder="💬 Utos kay Hazel… hal. “KYB ng ABC Trading, docs naka-attach” · “Research @achifindsph para sa brand check” · “I-post ito sa FB at IG” + 📎 video"></textarea>
+          <button type="submit" class="send" id="cmdSend" title="Ipadala (Enter)">➤</button>
+        </div>
+        <div class="cmdmsg" id="cmdMsg"></div>
+      </form>
       <div class="zoom">
         <button id="zoomIn" title="Zoom in">＋</button>
         <button id="zoomOut" title="Zoom out">－</button>
@@ -76,6 +87,25 @@
           <span class="msg" id="kycMsg"></span>
         </form>
       </div>
+      <div class="modal hidden" id="resModal">
+        <form class="affform" id="resForm">
+          <div class="head"><h2>🔎 Research with Taks (OSINT)</h2><button type="button" class="close" id="resClose">×</button></div>
+          <label>Ano ang ire-research? <small>(pangalan, kumpanya, website, crypto wallet, @username, bansa, o kahit anong tanong)</small>
+            <textarea name="q" rows="3" placeholder="hal. ABC Trading Corp · juandelacruz.com · 0x… · @achifindsph · Seychelles · Ano ang trend ng affiliate marketing sa PH 2026?"></textarea></label>
+          <label>Uri <select name="kind"><option value="auto">Auto-detect</option><option value="person">Tao</option><option value="company">Kumpanya</option>
+            <option value="website">Website / domain</option><option value="crypto">Crypto wallet</option><option value="username">Username / social</option>
+            <option value="country">Bansa (country risk)</option><option value="competitor">Competitor / market</option><option value="topic">Topic (kahit ano)</option></select></label>
+          <label>Bansa <small>(opsyonal)</small><input name="country" type="text" placeholder="Philippines" /></label>
+          <label>Purpose <small>(kailangan para sa tao · Data Privacy Act)</small><select name="purpose">
+            <option>General research</option><option>KYC / KYB due diligence</option><option>AML / sanctions / PEP review</option><option>Fraud investigation</option>
+            <option>Vendor due diligence</option><option>Brand / impersonation check</option><option>Competitor / market research</option><option>Content research</option></select></label>
+          <label>Notes <small>(opsyonal: context, business name para sa website check, atbp.)</small><input name="notes" type="text" /></label>
+          <label class="check"><input type="checkbox" name="web" value="1" checked /> 🌐 Web research ni Claude (kung Claude ang AI sa ⚙️; may bayad sa API)</label>
+          <p class="muted">Public at legal na sources lang. Intelligence ito, hindi desisyon: ang compliance team ang magpapasya. Sanctions true match = STOP, MLRO.</p>
+          <button class="primary" type="submit">🔎 I-research</button>
+          <span class="msg" id="resMsg"></span>
+        </form>
+      </div>
       <div class="modal hidden" id="contModal">
         <form class="affform" id="contForm">
           <div class="head"><h2>📱 Content Hub</h2><button type="button" class="close" id="contClose">×</button></div>
@@ -85,6 +115,7 @@
           <div id="contRows"></div>
           <label>✨ Inspo links <small>(isa kada linya: Canva, TikTok, Instagram, Facebook, YouTube, Pinterest, Drive o direktang video/photo link · panonoorin ng tamang bot)</small>
             <textarea name="inspo_links" rows="3" placeholder="https://www.tiktok.com/@.../video/...&#10;https://www.canva.com/design/.../view"></textarea></label>
+          <label class="check"><input type="checkbox" name="taks_research" checked /> 🔎 Ipa-research kay Taks ang produkto (selling points, FAQs, trends, bawal na claims) para sa captions</label>
           <fieldset class="plats"><legend>Saan ipo-post</legend>
             <label class="check"><input type="checkbox" name="plat" value="tiktok" checked /> TikTok (Shane + Claude)</label>
             <label class="check"><input type="checkbox" name="plat" value="facebook" checked /> Facebook Reels</label>
