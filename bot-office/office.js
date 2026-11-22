@@ -208,6 +208,7 @@
   addDesk('reg', 4.9, 0.9, { zone: 'compliance' });
   addDesk('risk', 8.4, 0.9, { zone: 'compliance' });
   addDesk('mgr', 11.9, 0.9, { zone: 'manager' });
+  addDesk('taks', 15.4, 0.9, { dual: true, zone: 'compliance' });
   addDesk('jp', 0.8, 4.6, { dual: true, zone: 'content' });
   addDesk('ashley', 4.3, 4.6, { zone: 'content' });
   addDesk('david', 7.8, 4.6, { zone: 'content' });
@@ -218,7 +219,6 @@
   // Mikay and Taks don't have desks: their "home" is the flower arch photo spot on the beach
   add({ type: 'museArch', x: 17.4, y: 8.35, w: 1.8, d: 0.3, h: 64, block: false });
   desks.mikay = { seat: { x: 17.9, y: 9.3 } };
-  desks.taks = { seat: { x: 18.8, y: 9.5 } };
 
   const solid = Array.from({ length: W }, () => new Array(H).fill(false));
   for (const f of F) if (f.block) {
@@ -296,8 +296,8 @@
       role: 'Writes the SEO captions and hashtags (with your caption rules), checks every affiliate link, and keeps the whole Content Hub on track.' },
     { id: 'mikay', name: 'Mikay', title: 'Muse', team: 'muse', color: '#ff7eb6',
       role: 'The office muse. No tasks, no deadlines: she just looks beautiful, poses at the flower arch, and lifts everyone\'s mood ✨' },
-    { id: 'taks', name: 'Taks', title: 'Resident Pogi', team: 'muse', color: '#ffb02e',
-      role: 'No job description. His only task is being gwapo 😎 (and maybe flexing at the volleyball court).' },
+    { id: 'taks', name: 'Taks', title: 'OSINT Researcher', team: 'osint', color: '#ffb02e',
+      role: 'Open-source intelligence: researches people, companies, websites, crypto wallets, usernames, countries and any topic from lawful public sources (sanctions lists, FATF, news, Wikipedia, registries, blockchain explorers, web research with Claude). Delivers intelligence reports with sources, confidence and fact vs allegation; runs the OSINT news sweep on every KYC/KYB; and researches each product for the Content Hub (selling points, buyer questions, trends, claims to avoid). Still pogi. 😎' },
     { id: 'mgr', name: 'Hazel', title: 'Bot Manager', team: 'manager', color: '#ff5d8f',
       role: 'Helps everyone and sends the alerts, like "🛑 possible sanctions TRUE MATCH. Escalate to the MLRO now. No tip-off."' },
   ];
@@ -308,7 +308,7 @@
       'Need a coconut 🥥', 'Who\'s next?', 'Life\'s a beach, then you audit'],
     compliance: ['Reading the fine print 🔍', 'Sec. 12… hmm', 'Checking the DPA…', 'Red flag spotted 🚩', 'Citing Art. 7',
       'Compliant ✅', 'Who still writes "herein"?', 'Screening names…', 'Footnote of doom 😱', 'Need a clause ref',
-      'GIS says 60%…', 'Checklist ✅❌✅'],
+      'GIS says 60%…', 'Checklist ✅❌✅', 'Taks, paki-OSINT nga 🔎'],
     content: ['Hook first!', 'Rendering…', 'Cut! That\'s a wrap 🎬', 'Caption on point', 'Color grade 🎨', '3… 2… 1… post!',
       'Make it pop ✨', 'Golden hour shot 🌅', '#fyp energy', 'Check the basket 🛒', 'Link in the comments!', 'Slot booked: 8 PM 📅',
       'Posting to the Page…', 'SEO keywords first', 'Affiliate link ✅'],
@@ -327,8 +327,8 @@
     relax: ['Ahh, sea breeze 😌', 'Five more minutes 😴', 'Coconut break 🥥', 'Sunset mode 🌅', 'Don\'t wake me 😎'],
     mikay: ['Ganda lang ako dito 💅', 'Selfie muna 📸', 'Hydrate, babes ✨', 'Golden hour = my hour 🌅', 'Pose ulit! 💃',
       'Did someone say photoshoot?', 'Glow up, not show up ✨', 'Ang init, pero ang ganda pa rin 😌'],
-    taks: ['Pogi problems 😎', 'Gwapo lang, walang ginagawa', 'Flex muna 💪', 'Sunglasses on 😎', 'Ang hirap maging gwapo',
-      'Hair flip, check ✔', 'Am I distracting you?', 'Beach bod loading… 💪'],
+    taks: ['Pogi pero may trabaho na 😎', 'Fact o allegation? 🤔', 'Check ko sa Wayback', 'Boolean search mode 🔎', 'Source please 📎',
+      'Sunglasses on, research on 😎', 'Who owns this company? 🧐', 'Nag-verify muna bago mag-conclude', 'OSINT > tsismis 😂'],
     jokes: [['Why was the contract sad?', 'It lost its appeal 😢'], ['Lawyer\'s favorite drink?', 'Subpoena colada 🍹'],
       ['Why did the UBO hide?', 'Too many layers 🧅'], ['Why did the video go viral?', 'It had a great hook 🎣'],
       ['Why don\'t crabs share files?', 'They\'re shellfish 🦀'], ['What did the ocean say to the beach?', 'Nothing, it just waved 🌊'],
@@ -1299,7 +1299,7 @@
   function drawBot(b, t) {
     const L = LOOKS[b.id];
     const g = iso(b.x, b.y, floorZ(b.x, b.y));
-    const dim = filter !== 'all' && b.team !== filter && b.team !== 'manager' && b.team !== 'muse';
+    const dim = filter !== 'all' && b.team !== filter && !['manager', 'muse', 'osint'].includes(b.team);
     ctx.globalAlpha = dim ? 0.3 : 1;
     const pose = poseOf(b);
     let lift = 0;
@@ -1737,6 +1737,56 @@
   document.getElementById('phoneOff').onclick = () => setPhone(false);
   document.getElementById('phoneBox').addEventListener('toggle', paintPhone);
 
+  // ───────────────────────── Command box (Hazel routes it) ─────────────────────────
+  const cmdBar = document.getElementById('cmdBar'), cmdText = document.getElementById('cmdText'), cmdFilesEl = document.getElementById('cmdFiles');
+  const cmdChips = document.getElementById('cmdChips'), cmdMsg = document.getElementById('cmdMsg');
+  let cmdFiles = [];
+  const drawChips = () => {
+    cmdChips.innerHTML = cmdFiles.map((f, i) => `<span>📎 ${escH(f.name)}<b data-i="${i}">×</b></span>`).join('');
+  };
+  cmdChips.addEventListener('click', (e) => { const i = e.target.dataset.i; if (i !== undefined) { cmdFiles.splice(+i, 1); drawChips(); } });
+  document.getElementById('cmdAttach').onclick = () => cmdFilesEl.click();
+  cmdFilesEl.onchange = () => { cmdFiles.push(...cmdFilesEl.files); cmdFilesEl.value = ''; drawChips(); };
+  cmdText.addEventListener('input', () => { cmdText.style.height = 'auto'; cmdText.style.height = Math.min(120, cmdText.scrollHeight) + 'px'; });
+  cmdText.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); cmdBar.requestSubmit(); } });
+  cmdBar.addEventListener('dragover', (e) => e.stopPropagation());
+  cmdBar.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); cmdFiles.push(...e.dataTransfer.files); drawChips(); });
+  cmdBar.onsubmit = async (e) => {
+    e.preventDefault();
+    const text = cmdText.value.trim();
+    if (!text && !cmdFiles.length) return;
+    if (!live) { cmdMsg.textContent = 'Offline: buksan muna ang server (start-mac.command).'; return; }
+    const btn = document.getElementById('cmdSend'); btn.disabled = true; cmdMsg.textContent = 'Ipinapadala kay Hazel…';
+    const fd = new FormData(); fd.append('text', text); cmdFiles.forEach((f) => fd.append('files', f));
+    try {
+      const j = await (await fetch('/api/command', { method: 'POST', body: fd })).json();
+      if (!j.ok) throw new Error(j.error || j.detail || 'error');
+      Sound.play('upload'); say(botById.mgr, 'Got it! 📨', 2);
+      cmdMsg.textContent = '✔ Naipasa sa ' + j.label; cmdText.value = ''; cmdText.style.height = 'auto'; cmdFiles = []; drawChips();
+      setTimeout(() => { cmdMsg.textContent = ''; }, 6000);
+    } catch (err) { cmdMsg.textContent = '⚠️ ' + err.message; }
+    btn.disabled = false;
+  };
+
+  // ───────────────────────── Research (Taks, OSINT) ─────────────────────────
+  const resModal = document.getElementById('resModal'), resForm = document.getElementById('resForm'), resMsg = document.getElementById('resMsg');
+  document.getElementById('resBtn').onclick = () => { resModal.classList.remove('hidden'); resMsg.textContent = live ? '' : 'Buksan muna ang server.'; };
+  document.getElementById('resClose').onclick = () => resModal.classList.add('hidden');
+  resModal.addEventListener('click', (e) => { if (e.target === resModal) resModal.classList.add('hidden'); });
+  resForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!live) { resMsg.textContent = 'Offline: buksan muna ang server.'; return; }
+    const btn = resForm.querySelector('.primary'); btn.disabled = true; resMsg.textContent = 'Sending…';
+    try {
+      const fd = new FormData(resForm); fd.set('web', resForm.elements.web.checked ? '1' : '0');
+      const j = await (await fetch('/api/research', { method: 'POST', body: fd })).json();
+      if (!j.ok) throw new Error(j.error || j.detail || 'error');
+      Sound.play('upload'); feed(botById.taks, 'On it! Researching 🔎 (' + j.kind + ')'); say(botById.taks, 'Research mode 😎🔎', 2.5);
+      resForm.reset(); resModal.classList.add('hidden'); resMsg.textContent = '';
+    } catch (err) { resMsg.textContent = 'Hindi nagsimula: ' + err.message; }
+    btn.disabled = false;
+  };
+
   // ───────────────────────── Day / night button ─────────────────────────
   const skyBtn = document.getElementById('skyBtn');
   const skyLabel = () => { skyBtn.textContent = { auto: '🌗', day: '☀️', night: '🌙' }[skyMode]; skyBtn.title = { auto: 'Day/night: follows Manila time', day: 'Always day', night: 'Always night' }[skyMode]; };
@@ -1769,7 +1819,7 @@
     [...contFiles.files].forEach((f) => fd.append('files', f));
     fd.append('meta', JSON.stringify([...contRows.querySelectorAll('.crow')].map((r) => (r.classList.contains('ref') ? {} : {
       tiktok: r.querySelector('.c-tt').value, shopee: r.querySelector('.c-sp').value, notes: r.querySelector('.c-nt').value }))));
-    fd.append('platforms', plats.join(',')); fd.append('when', contForm.elements.when.value); fd.append('inspo_links', contForm.elements.inspo_links.value);
+    fd.append('platforms', plats.join(',')); fd.append('when', contForm.elements.when.value); fd.append('inspo_links', contForm.elements.inspo_links.value); fd.append('research', contForm.elements.taks_research.checked ? '1' : '0');
     const btn = contForm.querySelector('.primary'); btn.disabled = true; contMsg.textContent = 'Uploading…';
     try {
       const j = await (await fetch('/api/content/batch', { method: 'POST', body: fd })).json();

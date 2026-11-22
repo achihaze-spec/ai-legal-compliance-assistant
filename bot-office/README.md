@@ -24,7 +24,8 @@ jacuzzi, play volleyball, dance or relax, and chat with the others.
   - **Jacob, Affiliate · Shopee:** Shopee affiliate link in the Facebook caption and as the first comment on Instagram.
   - **Ashley, Scheduler:** picks the posting slots (Asia/Manila; times set in ⚙️).
   - **David, Autopost:** posts at each slot (see below).
-- **Mikay (Muse)** and **Taks (Resident Pogi):** no tasks at all. They pose at the flower-arch Muse Spot, dance and drink coffee.
+- **Taks, OSINT Researcher** (2F, next to the compliance desks): see below. Still pogi.
+- **Mikay (Muse):** no tasks at all. She poses at the flower-arch Muse Spot, dances and drinks coffee.
 
 ## 📱 Content Hub
 Click **📱 Content**, pick one or more videos, add per video the TikTok Shop product link, the Shopee affiliate link
@@ -61,6 +62,26 @@ shot list, pacing, on-screen text, what to recreate and what not to copy. Canva 
 download the MP4/PNG for the full design. Asher uses the breakdown for the captions, and the Prompt Pack adds the
 "Recreate a viral video's structure" prompt. Inspo-only batches (no files) work too. Inspiration only: don't repost
 other people's videos, music or art.
+
+### 💬 Command box (Hazel routes it)
+At the bottom of the dashboard: 📎 attach any files (or drop them on the box), type an instruction, press Enter.
+Hazel sends it to the right team:
+- "KYB / KYC / due diligence" + documents or a Drive link → compliance team (KYB)
+- "affiliate" + a product link → Affiliate Studio
+- "research / alamin / sino si / osint" → Taks
+- "post / caption / reel / FB / IG" or videos/photos attached → Content Hub (links in the text are watched as inspo)
+- "review / contract / policy", or documents only → compliance document review
+- anything else with no files → Taks researches it
+Researching a person needs a purpose in the instruction (KYC, AML, fraud, vendor…), per the Data Privacy Act.
+
+### 🔎 Taks, OSINT Researcher (compliance + content)
+🔎 Research (or the command box): people, companies, websites/domains, crypto wallets, usernames, countries, competitors
+or any topic. Taks builds a research plan (Boolean searches and sources), runs the public checks (sanctions lists incl.
+OFAC crypto addresses, FATF, website/DNS/SSL/RDAP/Wayback, GDELT news, Wikipedia, blockchain explorers, username presence),
+adds cited web research with Claude when Claude is the AI provider, and writes an OSINT report (HTML + Word in Drive) with
+FACT / ALLEGATION labels, confidence, information gaps and an evidence log. He also runs a news sweep on every KYC/KYB,
+and researches each product for the Content Hub (selling points, buyer questions, trends, claims to avoid) so Asher's
+captions are grounded. Public sources only; intelligence, not decisions.
 
 ### 📚 Prompt Library and Prompt Packs
 `prompt_library.py` holds your collected AI image/video prompts (optimized for strict consistency): the Photos-to-AI-Video

@@ -195,4 +195,12 @@ def _docx(r: dict, kind: str, merchant: str, out: Path) -> None:
             doc.add_paragraph(name).runs[0].bold = True
             for l in links:
                 doc.add_paragraph(f"☐ [{l['group']}] {l['label']}: {l['url']}", style="List Bullet")
+    for title, lines in r.get("sections", []):
+        doc.add_heading(title, 1)
+        for x in lines:
+            doc.add_paragraph(str(x)[:3000], style="List Bullet")
+    for x in r.get("osint_news", []):
+        doc.add_heading(f"OSINT news sweep: {x['name']}", 2)
+        for a in x["items"] or [{"date": "", "title": "Walang news mention" if x["ok"] else "Hindi naabot ang GDELT: Analyst to run", "url": ""}]:
+            doc.add_paragraph(f"{a['date']} {a['title']} {a['url']}".strip(), style="List Bullet")
     doc.save(out)
