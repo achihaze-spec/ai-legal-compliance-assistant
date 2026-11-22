@@ -163,6 +163,7 @@ def events(after: int = 0):
 _jobs: "queue.Queue[dict]" = queue.Queue()
 _content_jobs: "queue.Queue[dict]" = queue.Queue()
 _affiliate_jobs: "queue.Queue[dict]" = queue.Queue()
+_osint_jobs: "queue.Queue[dict]" = queue.Queue()   # Taks has his own queue so research never holds up KYB / reviews
 
 
 @app.post("/api/upload")
@@ -229,7 +230,7 @@ async def research_start(request: Request):
     if kind == "person" and purpose == "General research":
         return {"ok": False, "error": "Para sa tao, pumili ng lehitimong purpose (hal. KYC, AML, fraud) — Data Privacy Act."}
     jid = uuid.uuid4().hex[:10]
-    _jobs.put({"kind": "osint", "id": jid, "name": q[:60], "q": q, "type": kind, "country": form.get("country", "").strip(),
+    _osint_jobs.put({"kind": "osint", "id": jid, "name": q[:60], "q": q, "type": kind, "country": form.get("country", "").strip(),
                "purpose": purpose, "notes": form.get("notes", "").strip()[:1000], "web": form.get("web") == "1"})
     emit(bot="taks", type="task", task=f"{jid}-osint", text=f"OSINT · {osint.TYPES[kind]}: {q[:50]}", secs=MIN_STEP_SECS["taks"])
     return {"ok": True, "job": jid, "kind": kind}
@@ -314,7 +315,7 @@ async def command(text: str = Form(""), files: list[UploadFile] = File(default=[
         except Exception:
             pass
     jid = uuid.uuid4().hex[:10]
-    _jobs.put({"kind": "osint", "id": jid, "name": q[:60], "q": q, "type": kind, "country": "",
+    _osint_jobs.put({"kind": "osint", "id": jid, "name": q[:60], "q": q, "type": kind, "country": "",
                "purpose": purpose, "notes": notes.strip()[:1000], "web": True})
     emit(bot="taks", type="task", task=f"{jid}-osint", text=f"OSINT · {osint.TYPES[kind]}: {q[:50]}", secs=MIN_STEP_SECS["taks"])
     return {"ok": True, "action": "research", "label": commander.LABEL["research"]}
@@ -1263,6 +1264,18 @@ def worker() -> None:
 threading.Thread(target=worker, daemon=True).start()
 threading.Thread(target=content_worker, daemon=True).start()
 threading.Thread(target=david_loop, daemon=True).start()
+
+
+def osint_worker() -> None:
+    while True:
+        job = _osint_jobs.get()
+        try:
+            run_osint_job(job)
+        except Exception as exc:
+            emit(bot="taks", type="done", task=f"{job['id']}-osint", ok=False, text=f"Research error: {str(exc)[:120]}")
+
+
+threading.Thread(target=osint_worker, daemon=True).start()
 threading.Thread(target=affiliate_worker, daemon=True).start()
 
 

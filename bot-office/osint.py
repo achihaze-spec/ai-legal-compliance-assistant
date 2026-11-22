@@ -121,18 +121,21 @@ HANDLE_SITES = {"Instagram": "https://www.instagram.com/{}/", "TikTok": "https:/
 
 
 def handles(user: str) -> list[dict]:
-    """Possible accounts: HTTP status only (many sites hide 404s), so every hit must be checked by hand."""
-    out = []
-    for site, tpl in HANDLE_SITES.items():
+    """Possible accounts: HTTP status only (many sites hide 404s), so every hit must be checked by hand. Checked in parallel."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(item):
+        site, tpl = item
         url = tpl.format(quote(user))
-        status = "?"
         try:
-            r = _get(url, timeout=12)
+            r = _get(url, timeout=10)
             status = "possible" if r.status_code == 200 else "not found" if r.status_code == 404 else f"HTTP {r.status_code}"
         except Exception as exc:
             status = f"unreachable ({type(exc).__name__})"
-        out.append({"site": site, "url": url, "status": status})
-    return out
+        return {"site": site, "url": url, "status": status}
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        return list(ex.map(one, HANDLE_SITES.items()))
 
 
 def boolean_queries(q: str, kind: str, country: str = "") -> list[str]:
