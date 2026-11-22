@@ -161,3 +161,4 @@ fieldset.plats { border: 1px solid #3a3270; border-radius: 12px; padding: 8px 12
 .cmdmsg { font-size: 12px; color: #b9b3e6; padding: 2px 6px; min-height: 0; }
 @media (max-width: 700px) { .cmdbar { width: calc(100% - 20px); bottom: 64px; } }
 .topbar .stats button { white-space: nowrap; }
+.seobtn { background: #7fd4ff; color: #04212e; border: 0; border-radius: 8px; padding: 6px 12px; font-weight: 800; cursor: pointer; }
