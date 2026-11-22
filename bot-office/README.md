@@ -74,6 +74,19 @@ Hazel sends it to the right team:
 - anything else with no files → Taks researches it
 Researching a person needs a purpose in the instruction (KYC, AML, fraud, vendor…), per the Data Privacy Act.
 
+### 📈 Asher's SEO desk (Content Manager + SEO Manager)
+📈 SEO (or the command box: "SEO audit https://…", "keyword research skort", "content brief teddy tint", "GEO check ng brand"):
+- **Site audit** (technical + on-page): crawls up to 150 pages (robots.txt respected), checks titles, meta descriptions,
+  H1s, canonical, noindex, alt text, thin content, broken links, redirect chains, HTTPS, mobile viewport, structured data,
+  Open Graph, hreflang, robots.txt, sitemap and orphan pages, plus Core Web Vitals from Google PageSpeed. Score, prioritised
+  fixes and CSV exports.
+- **Keyword research**: Google + DuckDuckGo autocomplete (PH), questions, long-tail, search intent and clusters.
+- **Content brief**: titles, meta description, H1, outline, FAQs, entities, internal links, schema, CTA and AI-search tips.
+- **Competitor SEO**: pages, content depth, schema, speed and topic gaps vs up to 4 competitors.
+- **AI search / GEO**: how the brand shows up in AI answers (Claude web search), Wikipedia/schema signals and actions.
+Not included (needs paid tools or a Google login): search volume, keyword difficulty, backlinks, rankings, Search Console
+and GA4 data.
+
 ### 🔎 Taks, OSINT Researcher (compliance + content)
 🔎 Research (or the command box): people, companies, websites/domains, crypto wallets, usernames, countries, competitors
 or any topic. Taks builds a research plan (Boolean searches and sources), runs the public checks (sanctions lists incl.

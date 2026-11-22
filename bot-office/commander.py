@@ -19,6 +19,7 @@ MEDIA = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv", ".3gp", ".wmv", ".flv"
 DOCS = {".pdf", ".docx", ".doc", ".txt", ".md", ".html", ".htm", ".rtf"}
 
 RE = {
+    "seo": re.compile(r"\b(seo|keyword research|keywords?|content brief|site audit|seo audit|backlinks?|rankings?|serp|geo|ai search|ai overview|chatgpt visibility|meta description)\b", re.I),
     "kyb": re.compile(r"\b(kyb|kyc|ubo|due diligence|onboard(ing)?|merchant review|edd|beneficial owner)\b", re.I),
     "affiliate": re.compile(r"\b(affiliate|5 videos?|limang video|five videos?)\b", re.I),
     "research": re.compile(r"\b(research|i-?research|osint|imbestiga(han)?|investigate|alamin|sino si|sino ang|hanapin|background check|look ?up|find out|"
@@ -76,7 +77,9 @@ def route(text: str, names: list[str]) -> dict:
     drive = [l for l in links if DRIVE_LINK.match(l)]
     hit = {k: bool(r.search(text)) for k, r in RE.items()}
     purpose = next((p for p, pat in PURPOSE if re.search(pat, text, re.I)), "General research")
-    if hit["kyb"]:
+    if hit["seo"] and not hit["kyb"]:
+        action = "seo"
+    elif hit["kyb"]:
         action = "kyb"
     elif hit["affiliate"] and product:
         action = "affiliate"
@@ -93,7 +96,11 @@ def route(text: str, names: list[str]) -> dict:
         ent = next((c.title() for c in osint.COUNTRIES if len(c) > 3 and re.search(rf"\b{re.escape(c)}\b", text, re.I)
                     and re.search(r"country|bansa|risk|sanction|fatf|jurisdiction", text, re.I)), "")
     subj = ent or subject(text)
-    return {"action": action, "subject": subj, "entity": ent, "links": links, "product": product, "drive": drive, "purpose": purpose,
+    low = text.lower()
+    seo_task = ("competitor" if "competitor" in low and len(links) > 1 else "brief" if "brief" in low else
+                "geo" if re.search(r"\b(geo|ai search|ai overview|chatgpt)\b", low) else
+                "keywords" if re.search(r"keyword", low) else "audit" if (links or (ent and "." in ent)) else "keywords")
+    return {"action": action, "subject": subj, "seo_task": seo_task, "entity": ent, "links": links, "product": product, "drive": drive, "purpose": purpose,
             "media": media, "docs": docs, "notes": re.sub(r"https?://\S+", " ", text).strip(), "kind": _kind(subj, purpose) if ent else "topic"}
 
 
@@ -106,5 +113,5 @@ def _kind(subj: str, purpose: str) -> str:
     return k
 
 
-LABEL = {"kyb": "🛡️ KYB (Pablo, Bailey, Charlie + Taks sweep)", "affiliate": "🛒 Affiliate Studio", "research": "🔎 Taks (OSINT research)",
+LABEL = {"seo": "📈 Asher (SEO)", "kyb": "🛡️ KYB (Pablo, Bailey, Charlie + Taks sweep)", "affiliate": "🛒 Affiliate Studio", "research": "🔎 Taks (OSINT research)",
          "content": "📱 Content Hub (JP, Asher, Shane, Jacob, Ashley, David)", "review": "⚖️ Compliance review (Pablo → Bailey → Charlie)"}

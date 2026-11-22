@@ -28,6 +28,7 @@
       <span title="Tasks waiting"><b id="statQueue">0</b> queued</span>
       <span title="Tasks finished"><b id="statDone">0</b> done</span>
       <button class="kycbtn" id="kycBtn" title="KYC / KYB / sanctions / URL check">🛡️ KYC</button>
+      <button class="seobtn" id="seoBtn" title="Asher: SEO audit, keywords, briefs, competitors, AI search">📈 SEO</button>
       <button class="resbtn" id="resBtn" title="Taks: OSINT research (kahit ano)">🔎 Research</button>
       <button class="contbtn" id="contBtn" title="Content Hub: edit, caption, schedule and auto-post videos">📱 Content</button>
       <button class="affbtn" id="affBtn" title="Gumawa ng 5 affiliate videos mula sa product link">🛒 Affiliate</button>
@@ -85,6 +86,20 @@
           <p class="muted">Lahat ng resulta ay "suggested": ikaw/analyst ang magko-confirm. Sanctions true match = STOP, MLRO, walang tip-off.</p>
           <button class="primary" type="submit">🔍 I-check</button>
           <span class="msg" id="kycMsg"></span>
+        </form>
+      </div>
+      <div class="modal hidden" id="seoModal">
+        <form class="affform" id="seoForm">
+          <div class="head"><h2>📈 SEO with Asher</h2><button type="button" class="close" id="seoClose">×</button></div>
+          <label>Task <select name="task"><option value="audit">🛠 Technical + on-page site audit</option><option value="keywords">🔑 Keyword research</option>
+            <option value="brief">📝 Content brief</option><option value="competitor">🥊 Competitor SEO</option><option value="geo">🤖 AI search / GEO visibility</option></select></label>
+          <label data-for="audit brief competitor geo">Website <input name="url" type="text" placeholder="https://yourshop.com" /></label>
+          <label data-for="keywords brief geo">Keyword o brand <input name="keyword" type="text" placeholder="hal. skort ootd · teddy tint · Evercrestcorp" /></label>
+          <label data-for="competitor">Competitors <small>(isang URL kada linya, hanggang 4)</small><textarea name="competitors" rows="3"></textarea></label>
+          <label data-for="audit">Ilang pages ang i-crawl <input name="max_pages" type="number" min="3" max="150" value="30" /></label>
+          <p class="muted">Libreng sources: crawl ng site (sinusunod ang robots.txt), Google PageSpeed, autocomplete keywords. Walang search volume o Search Console data (kailangan ng bayad na tool o Google login).</p>
+          <button class="primary" type="submit">📈 Simulan</button>
+          <span class="msg" id="seoMsg"></span>
         </form>
       </div>
       <div class="modal hidden" id="resModal">

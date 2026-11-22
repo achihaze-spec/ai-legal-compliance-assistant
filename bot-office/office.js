@@ -293,7 +293,7 @@
     { id: 'jacob', name: 'Jacob', title: 'Affiliate · Shopee', team: 'content', color: '#ff7a45',
       role: 'Adds your Shopee affiliate link: in the Facebook caption, and as the first comment on Instagram (IG caption links are not clickable).' },
     { id: 'asher', name: 'Asher', title: 'Content Manager', team: 'content', color: '#7fd4ff',
-      role: 'Writes the SEO captions and hashtags (with your caption rules), checks every affiliate link, and keeps the whole Content Hub on track.' },
+      role: 'Content Manager + SEO Manager. Writes the SEO captions and hashtags, checks every affiliate link, reads briefs and product lists, picks the Prompt Pack, and keeps the Content Hub on track. SEO desk (📈 SEO): technical + on-page site audits with Core Web Vitals, keyword research (PH autocomplete, intent, clusters), content briefs, competitor SEO and AI search / GEO visibility, with prioritised fixes and CSV exports.' },
     { id: 'mikay', name: 'Mikay', title: 'Muse', team: 'muse', color: '#ff7eb6',
       role: 'The office muse. No tasks, no deadlines: she just looks beautiful, poses at the flower arch, and lifts everyone\'s mood ✨' },
     { id: 'taks', name: 'Taks', title: 'OSINT Researcher', team: 'osint', color: '#ffb02e',
@@ -311,7 +311,8 @@
       'GIS says 60%…', 'Checklist ✅❌✅', 'Taks, paki-OSINT nga 🔎'],
     content: ['Hook first!', 'Rendering…', 'Cut! That\'s a wrap 🎬', 'Caption on point', 'Color grade 🎨', '3… 2… 1… post!',
       'Make it pop ✨', 'Golden hour shot 🌅', '#fyp energy', 'Check the basket 🛒', 'Link in the comments!', 'Slot booked: 8 PM 📅',
-      'Posting to the Page…', 'SEO keywords first', 'Affiliate link ✅'],
+      'Posting to the Page…', 'SEO keywords first', 'Affiliate link ✅', 'Title tag ≤ 60 chars!', 'Add the FAQ schema 📈',
+      'Core Web Vitals check ⚡', 'Search intent muna', 'Internal links, please 🔗'],
     chat: [['You done yet?', 'Almost! You?'], ['Volleyball later?', 'You\'re on! 🏐'], ['New KYB just dropped', 'I got this'],
       ['This one\'s going viral', 'Said every video ever 😂'], ['Coffee?', 'Iced, please 🧊☕'], ['Nice edit!', 'Thanks! 🥹'],
       ['Did you read the T&Cs?', 'Nobody reads the T&Cs.'], ['Dance floor at 5?', 'Wouldn\'t miss it 💃']],
@@ -1765,6 +1766,27 @@
       cmdMsg.textContent = '✔ Naipasa sa ' + j.label; cmdText.value = ''; cmdText.style.height = 'auto'; cmdFiles = []; drawChips();
       setTimeout(() => { cmdMsg.textContent = ''; }, 6000);
     } catch (err) { cmdMsg.textContent = '⚠️ ' + err.message; }
+    btn.disabled = false;
+  };
+
+  // ───────────────────────── SEO (Asher) ─────────────────────────
+  const seoModal = document.getElementById('seoModal'), seoForm = document.getElementById('seoForm'), seoMsg = document.getElementById('seoMsg');
+  const seoFields = () => { const t = seoForm.elements.task.value;
+    seoForm.querySelectorAll('[data-for]').forEach((l) => { l.style.display = l.dataset.for.split(' ').includes(t) ? '' : 'none'; }); };
+  seoForm.elements.task.onchange = seoFields;
+  document.getElementById('seoBtn').onclick = () => { seoModal.classList.remove('hidden'); seoFields(); seoMsg.textContent = live ? '' : 'Buksan muna ang server.'; };
+  document.getElementById('seoClose').onclick = () => seoModal.classList.add('hidden');
+  seoModal.addEventListener('click', (e) => { if (e.target === seoModal) seoModal.classList.add('hidden'); });
+  seoForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!live) { seoMsg.textContent = 'Offline: buksan muna ang server.'; return; }
+    const btn = seoForm.querySelector('.primary'); btn.disabled = true; seoMsg.textContent = 'Sending…';
+    try {
+      const j = await (await fetch('/api/seo', { method: 'POST', body: new FormData(seoForm) })).json();
+      if (!j.ok) throw new Error(j.error || j.detail || 'error');
+      Sound.play('upload'); feed(botById.asher, 'SEO task started 📈'); say(botById.asher, 'SEO mode 📈', 2);
+      seoModal.classList.add('hidden'); seoMsg.textContent = '';
+    } catch (err) { seoMsg.textContent = 'Hindi nagsimula: ' + err.message; }
     btn.disabled = false;
   };
 

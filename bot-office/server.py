@@ -38,6 +38,7 @@ import prompt_library
 import inspo
 import osint
 import commander
+import seo
 import outputs
 import content
 
@@ -163,7 +164,8 @@ def events(after: int = 0):
 _jobs: "queue.Queue[dict]" = queue.Queue()
 _content_jobs: "queue.Queue[dict]" = queue.Queue()
 _affiliate_jobs: "queue.Queue[dict]" = queue.Queue()
-_osint_jobs: "queue.Queue[dict]" = queue.Queue()   # Taks has his own queue so research never holds up KYB / reviews
+_osint_jobs: "queue.Queue[dict]" = queue.Queue()
+_seo_jobs: "queue.Queue[dict]" = queue.Queue()   # Taks has his own queue so research never holds up KYB / reviews
 
 
 @app.post("/api/upload")
@@ -258,6 +260,13 @@ async def command(text: str = Form(""), files: list[UploadFile] = File(default=[
     if act == "research" and rt["entity"] and rt["kind"] == "person" and rt["purpose"] == "General research":
         return {"ok": False, "error": "Para mag-research ng tao, sabihin ang purpose (hal. 'KYC', 'fraud', 'vendor check') — Data Privacy Act."}
     emit(bot="mgr", type="log", text=f"📨 “{text[:80]}”" + (f" + {len(saved)} file(s)" if saved else "") + f" → {commander.LABEL[act]}")
+    if act == "seo":
+        urls = [l for l in rt["links"] if l not in rt["product"]] or ([rt["entity"]] if rt["entity"] and "." in rt["entity"] else [])
+        task = rt["seo_task"]
+        kw = "" if rt["entity"] and "." in rt["entity"] else (rt["entity"] or re.sub(r"\b(seo|geo|check|competitor|ai search|keywords?|research|brief|content|audit|para sa|for|ng|ang|sa|mo|gawan)\b", " ",
+                                                                             rt["notes"], flags=re.I).strip(" ,.:"))
+        r = queue_seo(task, urls[0] if urls else "", kw, urls[1:], "30")
+        return r
     if act == "kyb":
         form = {"kind": "business", "name": rt["entity"] or (subj if len(subj) > 2 and not saved else ""),
                 "drive_link": rt["drive"][0] if rt["drive"] else (str(folder) if saved else ""),
@@ -319,6 +328,60 @@ async def command(text: str = Form(""), files: list[UploadFile] = File(default=[
                "purpose": purpose, "notes": notes.strip()[:1000], "web": True})
     emit(bot="taks", type="task", task=f"{jid}-osint", text=f"OSINT · {osint.TYPES[kind]}: {q[:50]}", secs=MIN_STEP_SECS["taks"])
     return {"ok": True, "action": "research", "label": commander.LABEL["research"]}
+
+
+@app.post("/api/seo")
+async def seo_start(request: Request):
+    form = {k: (v if isinstance(v, str) else "") for k, v in dict(await request.form()).items()}
+    return queue_seo(form.get("task", "audit"), form.get("url", ""), form.get("keyword", ""),
+                     [l.strip() for l in form.get("competitors", "").splitlines() if l.strip()], form.get("max_pages", "30"))
+
+
+def queue_seo(task: str, url: str, keyword: str, competitors: list[str], max_pages="30") -> dict:
+    task = task if task in seo.TASKS else "audit"
+    url, keyword = url.strip(), keyword.strip()
+    need = {"audit": url, "keywords": keyword, "brief": keyword, "competitor": url and competitors, "geo": keyword or url}[task]
+    if not need:
+        return {"ok": False, "error": {"audit": "Ilagay ang website URL.", "keywords": "Ilagay ang seed keyword.", "brief": "Ilagay ang keyword.",
+                                       "competitor": "Ilagay ang website mo at kahit isang competitor.", "geo": "Ilagay ang brand o website."}[task]}
+    jid = uuid.uuid4().hex[:10]
+    try:
+        mp = max(3, min(150, int(max_pages)))
+    except ValueError:
+        mp = 30
+    _seo_jobs.put({"id": jid, "task": task, "url": url, "keyword": keyword, "competitors": competitors, "max_pages": mp})
+    emit(bot="asher", type="task", task=f"{jid}-seo", text=f"SEO · {seo.TASKS[task]}: {(keyword or url)[:50]}", secs=MIN_STEP_SECS["asher"])
+    return {"ok": True, "job": jid, "task": task, "label": "📈 Asher (SEO)"}
+
+
+def run_seo_job(job: dict) -> None:
+    jid, task = job["id"], job["task"]
+    out = OUTBOX / jid
+    out.mkdir(parents=True, exist_ok=True)
+    target = job["keyword"] or job["url"]
+    if task == "audit":
+        res = seo.audit(job["url"], job["max_pages"])
+        res["_csv"] = [seo.save_csv([{k: v for k, v in i.items()} for i in res["issues"]], out / "seo_issues.csv"),
+                       seo.save_csv([{k: p[k] for k in ("url", "status", "title", "desc", "h1", "words", "no_alt", "schema", "ms")} for p in res["pages"]], out / "seo_pages.csv")]
+        summary = f"score {res['score']}/100 · {len(res['issues'])} issue(s) · {len(res['pages'])} page(s)"
+        level = "LOW" if res["score"] >= 80 else "MEDIUM" if res["score"] >= 50 else "HIGH"
+    elif task == "keywords":
+        res = seo.keywords(job["keyword"])
+        res["_csv"] = [seo.save_csv(res["rows"], out / "keywords.csv")]
+        summary, level = f"{len(res['rows'])} keyword(s), {len(res['clusters'])} cluster(s)", None
+    elif task == "brief":
+        res = seo.brief(job["keyword"], job["url"])
+        res["_csv"] = [seo.save_csv(res["kw"]["rows"], out / "keywords.csv")]
+        summary, level = f"brief ready ({res['brief'].get('by')})", None
+    elif task == "competitor":
+        res = seo.competitor(job["url"], job["competitors"])
+        res["_csv"] = [seo.save_csv([{k: v for k, v in x.items() if k != "titles"} for x in res["sites"]], out / "competitors.csv")]
+        summary, level = f"{len(res['sites'])} site(s) compared", None
+    else:
+        res = seo.geo(job["keyword"] or job["url"], job["url"])
+        summary, level = "AI search check " + ("with Claude web search" if (res.get("web") or {}).get("text") else "(signals only)"), None
+    (REPORTS / f"{jid}.html").write_text(seo.render(task, target, res, f"/outbox/{jid}/"), encoding="utf-8")
+    emit(bot="asher", type="done", task=f"{jid}-seo", url=f"/reports/{jid}.html", text=f"SEO · {target[:40]}: {summary}", **({"level": level} if level else {}))
 
 
 def run_osint_job(job: dict) -> None:
@@ -1276,6 +1339,18 @@ def osint_worker() -> None:
 
 
 threading.Thread(target=osint_worker, daemon=True).start()
+
+
+def seo_worker() -> None:
+    while True:
+        job = _seo_jobs.get()
+        try:
+            run_seo_job(job)
+        except Exception as exc:
+            emit(bot="asher", type="done", task=f"{job['id']}-seo", ok=False, text=f"SEO error: {str(exc)[:120]}")
+
+
+threading.Thread(target=seo_worker, daemon=True).start()
 threading.Thread(target=affiliate_worker, daemon=True).start()
 
 
