@@ -40,6 +40,9 @@ How David posts:
 - **TikTok:** TikTok has no public API for adding products (the yellow basket), so at the slot David alerts you and
   the batch page gives a ready-made prompt for **Claude in Chrome**: open TikTok Studio, upload, paste the caption, add the
   product link, post. Browser bots that post for you break TikTok's terms, so they are not used.
+- **Cancel:** type `cancel` (or `cancel David`, `stop`, `wag na i-post`) in the command box to cancel every queued post
+  that isn't posted yet. On a batch page, **✖ Cancel** stops one post, **✖ Cancel lahat** stops the whole batch, and
+  **↩ Ibalik sa schedule** puts a cancelled post back. A post already sent can't be cancelled here; delete it on the platform.
 
 ### 📎 Any file in the Content Hub
 📱 Content takes any file:

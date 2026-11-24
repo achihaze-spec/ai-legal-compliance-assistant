@@ -35,6 +35,14 @@ PURPOSE = [("KYC / KYB due diligence", r"kyc|kyb|due diligence|onboard"), ("AML 
            ("Content research", r"content|trend|viral|hook")]
 
 
+CANCEL = re.compile(r"^\s*(cancel|i-?cancel|stop|ihinto|itigil|huwag (na )?(i-?)?post|wag (na )?(i-?)?post)\b", re.I)
+
+
+def is_cancel(text: str) -> bool:
+    """'cancel', 'cancel David', 'cancel lahat ng posts', 'stop posting', 'wag na i-post'."""
+    return bool(CANCEL.search(text)) and not re.search(r"https?://", text)
+
+
 def subject(text: str) -> str:
     """The instruction minus links and command words: what the instruction is about."""
     t = re.sub(r"https?://\S+", " ", text)

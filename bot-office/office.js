@@ -1763,7 +1763,7 @@
       const j = await (await fetch('/api/command', { method: 'POST', body: fd })).json();
       if (!j.ok) throw new Error(j.error || j.detail || 'error');
       Sound.play('upload'); say(botById.mgr, 'Got it! 📨', 2);
-      cmdMsg.textContent = '✔ Naipasa sa ' + j.label; cmdText.value = ''; cmdText.style.height = 'auto'; cmdFiles = []; drawChips();
+      cmdMsg.textContent = j.message ? '✔ ' + j.message : '✔ Naipasa sa ' + j.label; cmdText.value = ''; cmdText.style.height = 'auto'; cmdFiles = []; drawChips();
       setTimeout(() => { cmdMsg.textContent = ''; }, 6000);
     } catch (err) { cmdMsg.textContent = '⚠️ ' + err.message; }
     btn.disabled = false;
