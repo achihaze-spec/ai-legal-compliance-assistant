@@ -255,6 +255,11 @@ async def command(text: str = Form(""), files: list[UploadFile] = File(default=[
         name = re.sub(r"[^\w.\- ()]+", "_", Path(f.filename or "file").name)[:120] or "file"
         (folder / name).write_bytes(data)
         saved.append(folder / name)
+    if not saved and commander.is_cancel(text):
+        n = cancel_posts()
+        emit(bot="mgr", type="log", text=f"📨 “{text[:80]}” → ✖ David: cancel queued posts")
+        return {"ok": True, "action": "cancel", "label": "✖ David (cancel posts)",
+                "message": f"Cancelled {n} queued post(s)." if n else "Walang naka-queue na post na ica-cancel."}
     rt = commander.route(text, [p.name for p in saved])
     act, subj = rt["action"], rt["subject"]
     if act == "research" and rt["entity"] and rt["kind"] == "person" and rt["purpose"] == "General research":
@@ -1230,10 +1235,41 @@ def content_post_action(pid: str, action: str):
     if action == "done":
         p = content_hub.update_post(pid, status="posted", error="")
         return {"ok": bool(p), "message": "Marked as posted ✅" if p else "Not found"}
+    if action == "cancel":
+        p = next((x for x in content_hub.load_posts() if x["id"] == pid), None)
+        if not p or p.get("status") not in PENDING:
+            return {"ok": False, "message": "Hindi na ma-cancel (posted na o wala na)." if p else "Not found"}
+        content_hub.update_post(pid, status="cancelled", error="")
+        emit(bot="david", type="log", text=f"✖ Cancelled: {content_hub.PLATFORMS[p['platform']]} · {p['name']}")
+        return {"ok": True, "message": "Cancelled ✖ David won't post it."}
+    if action == "restore":
+        p = content_hub.update_post(pid, status="scheduled", error="")
+        return {"ok": bool(p), "message": "Back on the schedule 📅" if p else "Not found"}
     if action == "now":
         p = content_hub.update_post(pid, slot=datetime.now(content.MANILA).isoformat(), status="scheduled", error="")
         return {"ok": bool(p), "message": "David will post it within a minute 🚀" if p else "Not found"}
     raise HTTPException(400)
+
+
+PENDING = {"scheduled", "handoff", "failed"}
+
+
+def cancel_posts(batch: str = "") -> int:
+    """Cancel every post David hasn't posted yet (one batch, or all)."""
+    n = 0
+    for p in content_hub.load_posts():
+        if p.get("status") in PENDING and (not batch or p["batch"] == batch):
+            content_hub.update_post(p["id"], status="cancelled", error="")
+            n += 1
+    if n:
+        emit(bot="david", type="done", task=f"cancel-{uuid.uuid4().hex[:6]}", text=f"✖ Cancelled {n} queued post(s). Wala akong ipo-post sa mga 'yan.")
+    return n
+
+
+@app.post("/api/content/cancel")
+def content_cancel(batch: str = Form("")):
+    n = cancel_posts(batch)
+    return {"ok": True, "cancelled": n, "message": f"Cancelled {n} post(s) ✖" if n else "Walang naka-queue na post."}
 
 
 @app.post("/api/zapier/test")

@@ -518,10 +518,20 @@ def render_batch(bid: str, posts: list[dict], videos: list[dict], refs: list | N
             continue
         ps = [p for p in posts if p["video"] == v["id"]]
         cards = []
+
+        def actions(p):
+            if p["status"] == "cancelled":
+                return f"<button onclick=\"act('{p['id']}','restore')\">↩ Ibalik sa schedule</button>"
+            if p["status"] in ("posted", "posting"):
+                return ""
+            return (f"<button onclick=\"act('{p['id']}','now')\">🚀 Post now</button>"
+                    f"<button onclick=\"act('{p['id']}','done')\">✔ Mark posted</button>"
+                    f"<button class=\"cancel\" onclick=\"act('{p['id']}','cancel')\">✖ Cancel</button>")
         for p in ps:
             st = p["status"]
             badge = {"scheduled": ("📅 Scheduled", "#4da3ff"), "posted": ("✅ Posted", "#3ddc84"), "handoff": ("🤖 Hand to Claude now", "#ffb02e"),
-                     "posting": ("⏳ Posting…", "#a77bff"), "failed": ("⚠️ Failed", "#e84a5f")}.get(st, (st, "#9c96c9"))
+                     "posting": ("⏳ Posting…", "#a77bff"), "failed": ("⚠️ Failed", "#e84a5f"),
+                     "cancelled": ("✖ Cancelled", "#9c96c9")}.get(st, (st, "#9c96c9"))
             when = datetime.fromisoformat(p["slot"]).strftime("%a %b %d, %I:%M %p").replace(" 0", " ")
             how = {"zapier": "auto-post (Zapier)", "meta": "auto-post (Meta API)"}.get(p.get("route"), "auto-post" if p.get("auto") else "hand to Claude")
             link = f' · <a href="{e(p["post_url"])}" target="_blank">open post</a>' if p.get("post_url") else ""
@@ -536,8 +546,7 @@ def render_batch(bid: str, posts: list[dict], videos: list[dict], refs: list | N
 <button onclick="copy(this, {e(json.dumps(p['caption']))})">📋 Copy caption</button>
 <button onclick="copy(this, {e(json.dumps(prompt))})">🤖 Copy Claude prompt</button>
 <a class="btn" href="{UPLOAD_PAGES[p['platform']]}" target="_blank">Open upload page</a>
-<button onclick="act('{p['id']}','now')">🚀 Post now</button>
-<button onclick="act('{p['id']}','done')">✔ Mark posted</button></div>""")
+{actions(p)}</div>""")
         review = "".join(f"<li>{e(x)}</li>" for x in v["review"]) or "<li>✅ Edit looks good</li>"
         links = "".join(f"<li>{'✅' if s == 'ok' else '⚠️' if s == 'warn' else '❌'} {e(k)}: {e(u)}{' — ' + e('; '.join(n)) if n else ''}</li>"
                         for k, u, s, n in v["links"] if s != "none") or "<li>No affiliate links on this video</li>"
@@ -561,14 +570,16 @@ h1{{margin:0 0 4px}} .muted{{color:#9cc7d6;font-size:13px}} .video{{display:flex
 pre{{white-space:pre-wrap;background:#06202c;border-radius:8px;padding:10px;font:inherit;font-size:14px}}
 .badge{{color:#10202a;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800}} .err{{color:#ff8a8a}}
 button,a.btn{{background:#ffd23d;color:#2a1a00;border:0;border-radius:8px;padding:7px 11px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;margin:4px 4px 0 0;font-size:13px}}
-a{{color:#7fe3ff}} img.sheet{{max-width:min(100%,560px);border-radius:10px;margin:6px 0}}</style><style>{pcss}</style></head><body><h1>📱 Content Hub · batch {e(bid)}</h1>
+button.cancel{{background:#e84a5f;color:#fff}} a{{color:#7fe3ff}} img.sheet{{max-width:min(100%,560px);border-radius:10px;margin:6px 0}}</style><style>{pcss}</style></head><body><h1>📱 Content Hub · batch {e(bid)}</h1>
 <p class="muted">JP edits · Asher writes the SEO captions and checks the links · Shane (TikTok + basket) · Jacob (Shopee link on Facebook / Instagram) ·
 Ashley schedules · David posts. Facebook and Instagram post by themselves when the Meta connection is set in ⚙️; TikTok posts are handed to Claude in Chrome
 (TikTok has no public API for product links). Reload to see the latest status.</p>
+<button class="cancel" onclick="cancelAll()">✖ Cancel lahat ng hindi pa naipo-post sa batch na ito</button>
 {''.join(rows)}
 <script>function copy(b,t){{navigator.clipboard.writeText(t);b.textContent='Copied ✅'}}
 {cjs}
-async function act(id,a){{const r=await fetch('/api/content/post/'+id+'/'+a,{{method:'POST'}});const j=await r.json();alert(j.message||'OK');location.reload()}}</script>
+async function cancelAll(){{if(!confirm('I-cancel lahat ng naka-queue na post sa batch na ito?'))return;const f=new FormData();f.append('batch',{json.dumps(bid)});const r=await fetch('/api/content/cancel',{{method:'POST',body:f}});const j=await r.json();alert(j.message);location.reload()}}
+async function act(id,a){{if(a==='cancel'&&!confirm('I-cancel ang post na ito?'))return;const r=await fetch('/api/content/post/'+id+'/'+a,{{method:'POST'}});const j=await r.json();alert(j.message||'OK');location.reload()}}</script>
 </body></html>"""
 
 
