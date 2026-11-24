@@ -399,7 +399,7 @@ def save_csv(rows: list[dict], path: Path) -> str:
     if not rows:
         return ""
     with path.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        w = csv.DictWriter(fh, fieldnames=list(dict.fromkeys(k for r in rows for k in r)), extrasaction="ignore")
         w.writeheader()
         for r in rows:
             w.writerow({k: (", ".join(v) if isinstance(v, list) else v) for k, v in r.items()})
