@@ -285,6 +285,12 @@ async def command(text: str = Form(""), files: list[UploadFile] = File(default=[
         emit(bot="cap", type="task", task=f"{jid}-cap", text=f"Write 5 affiliate scripts: {rt['product'][0][:60]}", secs=MIN_STEP_SECS["cap"])
         return {"ok": True, "action": act, "label": commander.LABEL[act], "page": f"/reports/{jid}.html"}
     if act == "content":
+        def _cmd_topic(rt, p):
+            """Caption topic: the named product/entity, else the instruction minus command words, else the file name."""
+            subj = rt["entity"] or commander.subject(rt["notes"])
+            if len([w for w in subj.split() if len(w) > 2]) < 2:
+                subj = re.sub(r"[_\-]+", " ", p.stem).strip()
+            return subj
         shopee = next((l for l in rt["product"] if "shope" in l), "")
         tiktok = next((l for l in rt["product"] if "tiktok" in l), "")
         inspo_links = [l for l in rt["links"] if l not in rt["product"]]
@@ -293,7 +299,7 @@ async def command(text: str = Form(""), files: list[UploadFile] = File(default=[
             vid = uuid.uuid4().hex[:10]
             if p.suffix.lower() in content_hub.VIDEO_EXTS | content_hub.IMAGE_EXTS:
                 items.append({"id": vid, "name": p.name, "path": p, "tiktok": tiktok, "shopee": shopee,
-                              "notes": ((rt["entity"] + ". ") if rt["entity"] else "") + rt["notes"][:500]})
+                              "notes": _cmd_topic(rt, p) + ". " + rt["notes"][:500]})
             else:
                 refs.append({"id": vid, "name": p.name, "path": str(p)})
         plats = [k for k, pat in (("tiktok", r"tiktok"), ("facebook", r"\b(fb|facebook)\b"), ("instagram", r"\b(ig|instagram)\b"))
